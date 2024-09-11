@@ -1,0 +1,12 @@
+app:
+  env: testing
+  key: base64:veah1v161ldkP86bDuDKifxZUK3hCaDLinf+JsJ+xOY=
+  url: localhost
+database:
+  mensa:
+    type: mysql
+    host: 127.0.0.1
+    port: 3306
+    name: mensa
+    user: mensa
+    password: password
