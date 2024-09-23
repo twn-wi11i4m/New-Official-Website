@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,6 +14,10 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
+Route::view('/', 'layouts.app')->name('index');
+Route::middleware('guest')->group(function () {
+    Route::get('register', [UserController::class, 'create'])->name('register');
+    Route::post('register', [UserController::class, 'store']);
 });
+
+Route::any('logout', [UserController::class, 'logout'])->name('logout');
