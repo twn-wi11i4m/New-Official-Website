@@ -18,6 +18,13 @@ Route::view('/', 'layouts.app')->name('index');
 Route::middleware('guest')->group(function () {
     Route::get('register', [UserController::class, 'create'])->name('register');
     Route::post('register', [UserController::class, 'store']);
+    Route::view('login', 'authentication.login')->name('login');
+    Route::post('login', [UserController::class, 'login']);
 });
 
 Route::any('logout', [UserController::class, 'logout'])->name('logout');
+Route::middleware('auth')->group(function () {
+    Route::singleton('profile', UserController::class)
+        ->except('edit')
+        ->destroyable();
+});
