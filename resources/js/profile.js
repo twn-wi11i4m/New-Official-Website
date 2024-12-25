@@ -1,6 +1,6 @@
 import { post, get } from "./submitForm";
 
-const form = document.getElementById('form');
+const editForm = document.getElementById('form');
 
 const editButton = document.getElementById('editButton');
 const saveButton = document.getElementById('saveButton');
@@ -416,7 +416,7 @@ function failCallback(error) {
     cancelButton.hidden = false;
 }
 
-form.addEventListener(
+editForm.addEventListener(
     'submit', function (event) {
         event.preventDefault();
         if(submitting == '') {
@@ -442,7 +442,7 @@ form.addEventListener(
                         passport_number: passportNumberInput.value,
                         birthday: birthdayInput.value,
                     }
-                    post(form.action, 'put', data, successCallback, failCallback);
+                    post(editForm.action, successCallback, failCallback, 'put', data);
                 } else {
                     enableSubmitting();
                 }
@@ -463,12 +463,15 @@ function verified(id) {
     document.getElementById('submitVerifyCode'+id).remove();
     document.getElementById('cancelVerify'+id).remove();
     document.getElementById('submittingContactButton'+id).remove();
-    let verifyButton = document.getElementById('submittingContactButton'+id);
+    let verifyButton = document.getElementById('verifyContactButton'+id);
     verifyButton.classList.remove('submitButton');
     verifyButton.classList.remove('btn-primary');
     verifyButton.classList.add('btn-secondary');
     verifyButton.innerText = "Verified";
+    verifyButton.removeEventListener('click', verifyContact);
+    verifyButton.disabled = false;
     verifyButton.hidden = false;
+    document.getElementById('setDefault'+id).hidden = false;
 }
 
 function requestVerifyCodeSuccessCallback(response) {
@@ -519,7 +522,6 @@ function requestNewVerifyCode(event) {
             document.getElementById('requestingContactButton'+id).hidden = false;
             get(
                 event.target.parentElement.dataset.requsetverifycodeurl,
-                {},
                 requestVerifyCodeSuccessCallback,
                 requestNewVerifyCodefailCallback
             );
@@ -594,9 +596,9 @@ function submitVerifyCode(event) {
                 let data = {code: document.getElementById('verifyCodeInput'+id).value}
                 post(
                     event.target.action,
-                    'post', data,
                     submitVerifyCodeSuccessCallback,
-                    submitVerifyCodeFailCallback
+                    submitVerifyCodeFailCallback,
+                    'post', data
                 );
             }
         } else {
@@ -636,40 +638,100 @@ function requestVerifyCodefailCallback(error) {
 function verifyContact(event) {
     if(submitting == '') {
         let submitAt = Date.now();
-        submitting = 'verifyContact'.$submitAt;
+        submitting = 'verifyContact'+submitAt;
         disableSubmitting()
-        if(submitting == 'verifyContact'.$submitAt) {
+        if(submitting == 'verifyContact'+submitAt) {
             let id = event.target.id.replace('verifyContactButton', '');
             document.getElementById('verifyContactButton'+id).hidden = true;
             document.getElementById('requestingContactButton'+id).hidden = false;
             get(
                 event.target.parentElement.dataset.requsetverifycodeurl,
-                {},
                 requestVerifyCodeSuccessCallback,
                 requestVerifyCodefailCallback
             );
         }
     }
+}
 
+function setDefaultSuccessCallback(response) {
+    bootstrapAlert(
+        response.status == 201 ?
+        response.data.message : response.data.success
+    );
+    let id = urlGetContactID(response.request.responseURL);
+    document.getElementById('settingDefault'+id).hidden = true;
+    let defaultContact = document.getElementById('defaultContact'+id);
+    let type = defaultContact.dataset.type;
+    for(let tag of document.getElementsByClassName(type+'DefaultContact')) {
+        tag.hidden = true;
+    }
+    for(let form of document.getElementsByClassName(type+'SetDefault')) {
+        if(
+            document.getElementById(
+                'verifyContactButton'+form.id.replace('setDefault', '')
+            ).contains('submitButton')
+        ) {
+            form.hidden = false;
+        }
+    }
+    defaultContact.hidden = false;
+    enableSubmitting();
+}
+
+function setDefaultFailCallback(error) {
+    let id = urlGetContactID(error.request.responseURL);
+    document.getElementById('settingDefault'+id).hidden = true;
+    document.getElementById('setDefault'+id).hidden = false;
+    enableSubmitting();
+}
+
+function setDefault(event) {
+    event.preventDefault();
+    if(submitting == '') {
+        let submitAt = Date.now();
+        submitting = 'setDefault'+submitAt;
+        disableSubmitting()
+        if(submitting == 'setDefault'+submitAt) {
+            event.target.hidden = true;
+            let id = event.target.id.replace('setDefault', '');
+            document.getElementById('settingDefault'+id).hidden = false;
+            post(
+                event.target.action,
+                setDefaultSuccessCallback,
+                setDefaultFailCallback,
+                'put'
+            );
+        }
+    }
 }
 
 document.querySelectorAll('.contactLoader').forEach(
     (loader) => {
         let id = loader.id.replace('contactLoader', '');
-        document.getElementById('verifyContactButton'+id).addEventListener(
-            'click', verifyContact
+        let verifyContactButton = document.getElementById('verifyContactButton'+id)
+        document.getElementById('setDefault'+id).addEventListener(
+            'submit', setDefault
         );
-        document.getElementById('requestNewVerifyCode'+id).addEventListener(
-            'click', requestNewVerifyCode
-        );
-        document.getElementById('verifyContactForm'+id).addEventListener(
-            'submit', submitVerifyCode
-        );
-        document.getElementById('cancelVerify'+id).addEventListener(
-            'click', cancelVerifyContact
-        );
+        if(verifyContactButton.classList.contains('submitButton')) {
+            verifyContactButton.addEventListener(
+                'click', verifyContact
+            );
+            document.getElementById('requestNewVerifyCode'+id).addEventListener(
+                'click', requestNewVerifyCode
+            );
+            document.getElementById('verifyContactForm'+id).addEventListener(
+                'submit', submitVerifyCode
+            );
+            document.getElementById('cancelVerify'+id).addEventListener(
+                'click', cancelVerifyContact
+            );
+        } else {
+            if(document.getElementById('defaultContact'+id).hidden) {
+                document.getElementById('setDefault'+id).hidden = false;
+            }
+        }
         loader.remove();
-        document.getElementById('verifyContactButton'+id).hidden = false;
+        verifyContactButton.hidden = false;
     }
 );
 
