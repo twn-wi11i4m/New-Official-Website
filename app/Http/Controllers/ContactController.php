@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Contact\UpdateRequest;
 use App\Http\Requests\Contact\VerifyRequest;
 use App\Models\ContactHasVerification;
 use App\Models\UserHasContact;
@@ -92,7 +93,7 @@ class ContactController extends Controller implements HasMiddleware
                         abort(428, "The {$contact->type} is not verified, cannot set this contact to default, please verify first.");
                     }
                     if ($contact->is_default) {
-                        abort(201, "The {$contact->type} already is default.");
+                        abort(201, "The {$contact->type} has already been default.");
                     }
 
                     return $next($request);
@@ -137,12 +138,12 @@ class ContactController extends Controller implements HasMiddleware
             UserHasContact::where('is_default', true)
                 ->where('contact', $contact->contact)
                 ->where('type', $contact->type)
-                ->where('id', '!=', $contact->id)
+                ->whereNot('id', $contact->id)
                 ->update(['is_default' => false]);
             ContactHasVerification::whereNull('expired_at')
                 ->whereNotNull('verified_at')
                 ->where('type', $contact->type)
-                ->where('contact_id', '!=', $contact->id)
+                ->whereNot('contact_id', $contact->id)
                 ->update(['expired_at' => now()]);
             $content = ['success' => "The {$contact->type} verifiy success."];
         }
@@ -161,5 +162,26 @@ class ContactController extends Controller implements HasMiddleware
         DB::commit();
 
         return ['success' => "The {$contact->type} changed to default!"];
+    }
+
+    public function update(UpdateRequest $request, UserHasContact $contact)
+    {
+        if ($request->{$contact->type} != $contact->contact) {
+            DB::beginTransaction();
+            $contact->update([
+                'contact' => $request->{$contact->type},
+                'is_default' => false,
+            ]);
+            if ($contact->isVerified()) {
+                $contact->lastVerification->update(['expired_at' => now()]);
+            }
+            DB::commit();
+        }
+
+        return [
+            'success' => "The {$contact->type} update success!",
+            'contact' => $contact->contact,
+            'is_default' => $contact->is_default,
+        ];
     }
 }
