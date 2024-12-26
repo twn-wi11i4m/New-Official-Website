@@ -173,15 +173,24 @@ class ContactController extends Controller implements HasMiddleware
                 'is_default' => false,
             ]);
             if ($contact->isVerified()) {
-                $contact->lastVerification->update(['expired_at' => now()]);
+                $contact->lastVerification()->update(['expired_at' => now()]);
             }
             DB::commit();
         }
+        $type = ucfirst($contact->type);
 
         return [
             'success' => "The {$contact->type} update success!",
             'contact' => $contact->contact,
-            'is_default' => $contact->is_default,
+            "default_{$contact->type}_id" => $request->user()->{"default$type"}->id ?? null,
+            'is_verified' => $contact->refresh()->isVerified(),
         ];
+    }
+
+    public function destroy(UserHasContact $contact)
+    {
+        $contact->delete();
+
+        return ['success' => "The {$contact->type} delete success!"];
     }
 }
