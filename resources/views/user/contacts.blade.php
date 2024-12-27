@@ -1,9 +1,6 @@
 @foreach ($contacts as $contact)
     <div class="row g-4" id="contactRow{{ $contact->id }}"
-        @if(! $contact->isVerified())
-            data-requsetVerifyCodeUrl="{{ route('contacts.send-verify-code', ['contact' => $contact]) }}"
-        @endif
-        >
+        data-requsetVerifyCodeUrl="{{ route('contacts.send-verify-code', ['contact' => $contact]) }}">
         <div class="col-md-3">
             <span id="contact{{ $contact->id }}">{{ $contact->contact }}</span>
             <form id="editContactForm{{ $contact->id }}" method="POST" novalidate hidden
@@ -33,7 +30,7 @@
                 Default
             </span>
             <form id="setDefault{{ $contact->id }}" class="{{ $contact->type }}SetDefault" method="POST"
-                action="{{ route('contacts.default', ['contact' => $contact]) }}" hidden>
+                action="{{ route('contacts.set-default', ['contact' => $contact]) }}" hidden>
                 @csrf
                 @method('put')
                 <button class="btn btn-primary submitButton">Set Default</button>
@@ -79,3 +76,24 @@
         <button class="btn btn-danger col-md-1 submitButton" id="deleteContact{{ $contact->id }}" form="deleteContactForm{{ $contact->id }}" hidden>Delete</button>
     </div>
 @endforeach
+<form class="row g-4 createContact" data-type="{{ $type }}" id="{{ $type }}CreateForm"
+    action="{{ route('contacts.store') }}" method="POST" novalidate>
+    @csrf
+    <div class="col-md-3">
+        <input
+            @switch($type)
+                @case('email')
+                    type="email" name="email" maxlength="320"
+                    placeholder="dammy@example.com"
+                    @break
+                @case('mobile')
+                    type="tel" name="mobile" minlength="5" maxlength="15"
+                    placeholder="85298765432"
+                    @break
+            @endswitch
+            id="{{ $type }}ContactInput" class="form-control" required />
+    </div>
+    <div class="col-md-4"></div>
+    <button class="btn btn-success col-md-4 submitButton" id="{{ $type }}CreateButtob">Create</button>
+    <button class="btn btn-success col-md-4" id="{{ $type }}CreatingContact" hidden disabled>Creating</button>
+</form>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Contact\StoreRequest;
 use App\Http\Requests\Contact\UpdateRequest;
 use App\Http\Requests\Contact\VerifyRequest;
 use App\Models\ContactHasVerification;
@@ -27,7 +28,7 @@ class ContactController extends Controller implements HasMiddleware
 
                     return $next($request);
                 }
-            )),
+            ))->except('store'),
             (new Middleware(
                 function (Request $request, Closure $next) {
                     $contact = $request->route('contact');
@@ -162,6 +163,29 @@ class ContactController extends Controller implements HasMiddleware
         DB::commit();
 
         return ['success' => "The {$contact->type} changed to default!"];
+    }
+
+    public function store(StoreRequest $request)
+    {
+        foreach ($request->validated() as $type => $contact) {
+            $contact = UserHasContact::create([
+                'user_id' => $request->user()->id,
+                'type' => $type,
+                'contact' => $contact,
+            ]);
+        }
+
+        return [
+            'success' => "The {$contact->type} create success!",
+            'id' => $contact->id,
+            'type' => $contact->type,
+            'contact' => $contact->contact,
+            'send_verify_code_url' => route('contacts.send-verify-code', ['contact' => $contact]),
+            'verify_url' => route('contacts.verify', ['contact' => $contact]),
+            'set_default_url' => route('contacts.set-default', ['contact' => $contact]),
+            'update_url' => route('contacts.update', ['contact' => $contact]),
+            'delete_url' => route('contacts.destroy', ['contact' => $contact]),
+        ];
     }
 
     public function update(UpdateRequest $request, UserHasContact $contact)
