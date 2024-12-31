@@ -14,4 +14,8 @@ class UserLoginLog extends Authenticatable
         'login_ip',
         'status',
     ];
+
+    public $sortable = [
+        'created_at',
+    ];
 }

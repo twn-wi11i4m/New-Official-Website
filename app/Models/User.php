@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,11 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
+use Kyslik\ColumnSortable\Sortable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, Sortable;
 
     protected $fillable = [
         'username',
@@ -27,6 +30,12 @@ class User extends Authenticatable
         'birthday',
     ];
 
+    public $sortable = [
+        'birthday',
+        'created_at',
+        'updated_at',
+    ];
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -35,6 +44,24 @@ class User extends Authenticatable
     protected $casts = [
         'password' => 'hashed',
     ];
+
+    protected function name(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                $name = [
+                    '1' => $attributes['given_name'],
+                    '3' => $attributes['family_name'],
+                ];
+                if (! is_null($attributes['middle_name'])) {
+                    $name['2'] = $attributes['middle_name'];
+                }
+                ksort($name);
+
+                return implode(', ', $name);
+            }
+        );
+    }
 
     public function gender(): BelongsTo
     {
@@ -51,6 +78,18 @@ class User extends Authenticatable
         return $this->hasMany(UserHasContact::class);
     }
 
+    public function emails(): HasMany
+    {
+        return $this->contacts()
+            ->where('type', 'email');
+    }
+
+    public function mobiles(): HasMany
+    {
+        return $this->contacts()
+            ->where('type', 'mobile');
+    }
+
     public function checkPassword($password): bool
     {
         return Hash::check($password, $this->password);
@@ -59,6 +98,12 @@ class User extends Authenticatable
     public function loginLogs(): HasMany
     {
         return $this->hasMany(UserLoginLog::class);
+    }
+
+    public function lastLoginLogs(): HasOne
+    {
+        return $this->hasOne(UserLoginLog::class)
+            ->latest('id');
     }
 
     public function defaultEmail(): HasOne
@@ -108,5 +153,10 @@ class User extends Authenticatable
             ->where('type', $contactType)
             ->where('created_at', '>=', now()->subDay())
             ->count() >= 5;
+    }
+
+    public function isAdmin()
+    {
+        return $this->getAllPermissions()->count() || $this->hasRole('Super Administrator');
     }
 }

@@ -3,10 +3,9 @@
 @section('main')
     <section class="container">
         <article>
-            <h2 class="fw-bold mb-2 text-uppercase">Profile</h2>
             <form method="POST" class="row g-3" id="form" novalidate>
-                <h3 class="fw-bold mb-2">
-                    Info
+                <h2 class="fw-bold mb-2">
+                    Profile
                     <button class="btn btn-primary" id="savingButton" type="button" disabled hidden>
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                         Saving...
@@ -14,7 +13,7 @@
                     <button onclick="return false" class="btn btn-outline-primary" id="editButton">Edit</button>
                     <button type="submit" class="btn btn-outline-primary submitButton" id="saveButton" hidden>Save</button>
                     <button onclick="return false" class="btn btn-outline-danger" id="cancelButton" hidden>Cancel</button>
-                </h3>
+                </h2>
                 <div class="alert alert-primary" id="editInfoRemind" role="alert" hidden>
                     <ol>
                         <li>Password only require when you change the username or password</li>
@@ -114,15 +113,15 @@
         </article>
         <article id="email">
             <h3 class="fw-bold mb-2"><i class="bi bi-envelope"></i> Email</h3>
-            @include('user.contacts', ['contacts' => $contacts['emails'], 'type' => 'email'])
+            @include('user.contacts', ['contacts' => $user->emails, 'type' => 'email'])
         </article>
         <article id="mobile">
             <h3 class="fw-bold mb-2"><i class="bi bi-phone"></i> Mobile</h3>
-            @include('user.contacts', ['contacts' => $contacts['mobiles'], 'type' => 'mobile'])
+            @include('user.contacts', ['contacts' => $user->mobiles, 'type' => 'mobile'])
         </article>
     </section>
 @endsection
 
 @push('after footer')
-    @vite('resources/js/profile.js')
+    @vite('resources/js/user/profile.js')
 @endpush

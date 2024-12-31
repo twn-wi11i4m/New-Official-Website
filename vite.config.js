@@ -7,9 +7,10 @@ export default defineConfig({
             input: [
                 'resources/css/app.scss',
                 'resources/js/app.js',
-                'resources/js/register.js',
-                'resources/js/profile.js',
-                'resources/js/login.js',
+                'resources/js/user/register.js',
+                'resources/js/user/profile.js',
+                'resources/js/user/login.js',
+                'resources/js/admin/users/index.js'
             ],
             refresh: true,
         }),
