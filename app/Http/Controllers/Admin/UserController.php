@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\User\UpdateRequest;
 use App\Models\Gender;
 use App\Models\PassportType;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller implements HasMiddleware
 {
@@ -16,6 +18,7 @@ class UserController extends Controller implements HasMiddleware
     {
         return [
             (new Middleware('permission:View:User'))->only(['index', 'show']),
+            (new Middleware('permission:Edit:User'))->only(['update']),
         ];
     }
 
@@ -94,6 +97,42 @@ class UserController extends Controller implements HasMiddleware
     public function show(User $user)
     {
         return view('admin.users.show')
-            ->with('user', $user);
+            ->with('user', $user)
+            ->with(
+                'genders', Gender::all()
+                    ->pluck('name', 'id')
+                    ->toArray()
+            )->with(
+                'passportTypes', PassportType::all()
+                    ->pluck('name', 'id')
+                    ->toArray()
+            )->with(
+                'maxBirthday', now()
+                    ->subYears(2)
+                    ->format('Y-m-d')
+            );
+    }
+
+    public function update(UpdateRequest $request, User $user)
+    {
+        DB::beginTransaction();
+        $gender = Gender::firstOrCreate(['name' => $request->gender]);
+        $return = [
+            'username' => $request->username,
+            'family_name' => $request->family_name,
+            'middle_name' => $request->middle_name,
+            'given_name' => $request->given_name,
+            'passport_type_id' => $request->passport_type_id,
+            'passport_number' => $request->passport_number,
+            'gender_id' => $gender->id,
+            'birthday' => $request->birthday,
+        ];
+        $user->update($return);
+        unset($return['gender_id']);
+        $return['gender'] = $gender->name;
+        $return['success'] = 'The user data update success!';
+        DB::commit();
+
+        return $return;
     }
 }

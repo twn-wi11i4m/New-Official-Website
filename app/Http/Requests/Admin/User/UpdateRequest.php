@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\User;
+namespace App\Http\Requests\Admin\User;
 
 use App\Models\PassportType;
 use App\Models\User;
@@ -16,17 +16,14 @@ class UpdateRequest extends FormRequest
 
     public function rules(): array
     {
+        $user = $this->route('user');
+
         return [
             'username' => [
                 'required', 'string', 'min:8', 'max:16',
                 Rule::unique(User::class, 'username')
-                    ->ignore($this->user()),
+                    ->ignore($user),
             ],
-            'password' => [
-                Rule::requiredIf($this->username != $this->user()->username || $this->new_password),
-                'string', 'min:8', 'max:16',
-            ],
-            'new_password' => 'nullable|string|min:8|max:16|confirmed',
             'family_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'given_name' => 'required|string|max:255',
@@ -40,7 +37,6 @@ class UpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'password.required' => 'The password field is required when you change the username or password.',
             'passport_type_id.required' => 'The passport type field is required.',
             'passport_type_id.exists' => 'The selected passport type is invalid.',
         ];
