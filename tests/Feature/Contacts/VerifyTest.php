@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Contact;
+namespace Tests\Feature\Contacts;
 
 use App\Models\User;
 use App\Models\UserHasContact;
@@ -316,7 +316,7 @@ class VerifyTest extends TestCase
         $response->assertSuccessful();
         $response->assertJson(['success' => "The {$this->contact->type} verifiy success."]);
         $this->assertTrue($this->contact->refresh()->isVerified());
-        $this->assertFalse((bool) $contact->fresh()->is_default);
+        $this->assertFalse($contact->refresh()->is_default);
         $this->assertFalse($contact->refresh()->isVerified());
     }
 }
