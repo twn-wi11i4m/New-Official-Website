@@ -408,12 +408,69 @@ function urlGetContactID(url) {
     return (new URL(url).pathname).match(/^\/admin\/contacts\/([0-9]+).*/i)[1];
 }
 
+function updateVerifyContactStatusButton(button, status) {
+    if(stringToBoolean(button.value) == status) {
+        button.value = status ? 0 : 1;
+        if(status) {
+            button.innerHTML = 'Verified';
+            button.classList.remove('btn-danger');
+            button.classList.add('btn-success');
+        } else {
+            button.innerHTML = 'Not Verified';
+            button.classList.remove('btn-success');
+            button.classList.add('btn-danger');
+            document.getElementById('defaultContact'+id).hidden = true;
+        }
+    }
+}
+
+function changeVerifyContactStatusSuccessCallbacke(response) {
+    let id = urlGetContactID(response.request.responseURL);
+    document.getElementById('changingVerifyContactStatus'+id).hidden = true;
+    let input = document.getElementById('verifyContactStatus'+id);
+    updateVerifyContactStatusButton(input, response.data.status);
+    enableSubmitting();
+    input.hidden = false;
+}
+
+function changeVerifyContactStatusFailCallbacke(error) {
+    if(error.response.data.status) {
+        bootstrapAlert(error.response.data.status);
+    }
+    document.getElementById('changingVerifyContactStatus'+id).hidden = true;
+    enableSubmitting();
+    document.getElementById('verifyContactStatus'+id).hidden = false;
+}
+
+function changeVerifyContactStatus(event) {
+    event.preventDefault();
+    if(submitting == '') {
+        let submitAt = Date.now();
+        submitting = 'changeVerifyContactStatus'+submitAt;
+        let id = event.target.id.replace('changeVerifyContactStatusForm', '');
+        disableSubmitting();
+        if(submitting == 'changeVerifyContactStatus'+submitAt) {
+            let input = document.getElementById('verifyContactStatus'+id);
+            input.hidden = true;
+            document.getElementById('changingVerifyContactStatus'+id).hidden = false;
+            let data = {status: stringToBoolean(input.value)};
+            post(
+                event.target.action,
+                changeVerifyContactStatusSuccessCallbacke,
+                changeVerifyContactStatusFailCallbacke,
+                'put', data
+            );
+        }
+    }
+}
+
 function closeEdit(id) {
     document.getElementById('editContactForm'+id).hidden = true;
     let contact = document.getElementById('contactInput'+id);
     contact.value = contact.dataset.value;
-    let isVerifid = document.getElementById('isVerifidContactCheckbox'+id);
-    isVerifid.checked = stringToBoolean(isVerifid.dataset.value);
+    document.getElementById('isVerifiedContactCheckbox'+id).checked = ! stringToBoolean(
+        document.getElementById('changingVerifyContactStatus'+id).value
+    );
     let isDefault = document.getElementById('isDefaultContactCheckbox'+id);
     isDefault.checked = stringToBoolean(isDefault.dataset.value);
     document.getElementById('showContactRow'+id).hidden = false;
@@ -457,9 +514,11 @@ function updateContactSuccessCallback(response) {
     document.getElementById('contact'+id).innerText = response.data.contact;
     let contact = document.getElementById('contactInput'+id);
     contact.dataset.value = response.data[contact.name];
-    let isVerifid = document.getElementById('isVerifidContactCheckbox'+id);
-    isVerifid.dataset.value = response.data.is_verified;
-    document.getElementById('verifiedContact'+id).hidden = !response.data.is_verified;
+    let isVerified = document.getElementById('isVerifiedContactCheckbox'+id);
+    updateVerifyContactStatusButton(
+        document.getElementById('verifyContactStatus'+id),
+        response.data.is_verified
+    );
     let isDefault = document.getElementById('isDefaultContactCheckbox'+id);
     isDefault.dataset.value = response.data.is_default;
     if(response.data.is_default) {
@@ -473,7 +532,7 @@ function updateContactSuccessCallback(response) {
     document.getElementById('saveContact'+id).hidden = false;
     document.getElementById('cancelEditContact'+id).hidden = false;
     contact.disabled = false;
-    isVerifid.disabled = false;
+    isVerified.disabled = false;
     isDefault.disabled = false;
     enableSubmitting();
 }
@@ -488,7 +547,7 @@ function updateContactFailCallback(error) {
     document.getElementById('saveContact'+id).hidden = false;
     document.getElementById('cancelEditContact'+id).hidden = false;
     document.getElementById('contactInput'+id).disabled = false;
-    document.getElementById('isVerifidContactCheckbox'+id).disabled = false;
+    document.getElementById('isVerifiedContactCheckbox'+id).disabled = false;
     document.getElementById('isDefaultContactCheckbox'+id).disabled = false;
     enableSubmitting();
 }
@@ -500,19 +559,19 @@ function updateContact(event) {
         submitting = 'updateContact'+submitAt;
         let id = event.target.id.replace('editContactForm', '');
         let contact = document.getElementById('contactInput'+id);
-        let isVerifid = document.getElementById('isVerifidContactCheckbox'+id);
+        let isVerified = document.getElementById('isVerifiedContactCheckbox'+id);
         let isDefault = document.getElementById('isDefaultContactCheckbox'+id);
         disableSubmitting();
         if(submitting == 'updateContact'+submitAt) {
             if(contactValidation(contact)) {
                 contact.disabled = true;
-                isVerifid.disabled = true;
+                isVerified.disabled = true;
                 isDefault.disabled = true;
                 document.getElementById('saveContact'+id).hidden = true;
                 document.getElementById('cancelEditContact'+id).hidden = true;
                 document.getElementById('savingContact'+id).hidden = false;
                 let data = {
-                    is_verified: isVerifid.checked,
+                    is_verified: isVerified.checked,
                     is_default: isDefault.checked,
                 };
                 data[contact.name] = contact.value;
@@ -538,17 +597,20 @@ function editContact(event) {
 
 function setContactEventListeners(loader) {
     let id = loader.id.replace('contactLoader', '');
+    document.getElementById('changeVerifyContactStatusForm'+id).addEventListener(
+        'submit', changeVerifyContactStatus
+    )
     document.getElementById('editContactForm'+id).addEventListener(
         'submit', updateContact
     );
     document.getElementById('isDefaultContactCheckbox'+id).addEventListener(
         'change', function(event) {
             if(event.target.checked) {
-                document.getElementById('isVerifidContactCheckbox'+id).checked = true;
+                document.getElementById('isVerifiedContactCheckbox'+id).checked = true;
             }
         }
     );
-    document.getElementById('isVerifidContactCheckbox'+id).addEventListener(
+    document.getElementById('isVerifiedContactCheckbox'+id).addEventListener(
         'change', function(event) {
             if(! event.target.checked) {
                 document.getElementById('isDefaultContactCheckbox'+id).checked = false;
