@@ -8,7 +8,7 @@ use App\Models\UserHasContact;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class VerifyTest extends TestCase
+class DefaultTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -26,7 +26,7 @@ class VerifyTest extends TestCase
         $contact = UserHasContact::factory()->create();
         $response = $this->putJson(
             route(
-                'admin.contacts.verify',
+                'admin.contacts.default',
                 ['contact' => $contact]
             ), ['status' => true]
         );
@@ -45,7 +45,7 @@ class VerifyTest extends TestCase
         );
         $response = $this->actingAs($user)->putJson(
             route(
-                'admin.contacts.verify',
+                'admin.contacts.default',
                 ['contact' => $contact]
             ), ['status' => true]
         );
@@ -58,7 +58,7 @@ class VerifyTest extends TestCase
         $response = $this->actingAs($this->user)
             ->putJson(
                 route(
-                    'admin.contacts.verify',
+                    'admin.contacts.default',
                     ['contact' => $contact]
                 )
             );
@@ -72,7 +72,7 @@ class VerifyTest extends TestCase
         $response = $this->actingAs($this->user)
             ->putJson(
                 route(
-                    'admin.contacts.verify',
+                    'admin.contacts.default',
                     ['contact' => $contact]
                 ), ['status' => 'abc']
             );
@@ -86,13 +86,13 @@ class VerifyTest extends TestCase
         $response = $this->actingAs($this->user)
             ->putJson(
                 route(
-                    'admin.contacts.verify',
+                    'admin.contacts.default',
                     ['contact' => $contact]
                 ), ['status' => false]
             );
         $response->assertSuccessful();
         $response->assertJson([
-            'success' => 'The contact verifty status update success!',
+            'success' => 'The contact default status update success!',
             'status' => false,
         ]);
         $contact->refresh();
@@ -100,25 +100,25 @@ class VerifyTest extends TestCase
         $this->assertFalse($contact->is_default);
     }
 
-    public function test_happy_case_not_verified_contact_change_to_verified()
+    public function test_happy_case_not_verified_contact_change_to_default()
     {
         $contact = UserHasContact::factory()
             ->create();
         $response = $this->actingAs($this->user)
             ->putJson(
                 route(
-                    'admin.contacts.verify',
+                    'admin.contacts.default',
                     ['contact' => $contact]
                 ), ['status' => true]
             );
         $response->assertSuccessful();
         $response->assertJson([
-            'success' => 'The contact verifty status update success!',
+            'success' => 'The contact default status update success!',
             'status' => true,
         ]);
         $contact->refresh();
         $this->assertTrue($contact->isVerified());
-        $this->assertFalse($contact->is_default);
+        $this->assertTrue($contact->is_default);
     }
 
     public function test_happy_case_verified_contact_no_change()
@@ -130,18 +130,41 @@ class VerifyTest extends TestCase
         $response = $this->actingAs($this->user)
             ->putJson(
                 route(
-                    'admin.contacts.verify',
+                    'admin.contacts.default',
+                    ['contact' => $contact]
+                ), ['status' => false]
+            );
+        $response->assertSuccessful();
+        $response->assertJson([
+            'success' => 'The contact default status update success!',
+            'status' => false,
+        ]);
+        $contact->refresh();
+        $this->assertTrue($contact->isVerified());
+        $this->assertFalse($contact->is_default);
+    }
+
+    public function test_happy_case_verified_contact_change_to_default()
+    {
+        $contact = UserHasContact::factory()
+            ->create();
+        $contact->newVerifyCode();
+        $contact->lastVerification()->update(['verified_at' => now()]);
+        $response = $this->actingAs($this->user)
+            ->putJson(
+                route(
+                    'admin.contacts.default',
                     ['contact' => $contact]
                 ), ['status' => true]
             );
         $response->assertSuccessful();
         $response->assertJson([
-            'success' => 'The contact verifty status update success!',
+            'success' => 'The contact default status update success!',
             'status' => true,
         ]);
         $contact->refresh();
         $this->assertTrue($contact->isVerified());
-        $this->assertFalse($contact->is_default);
+        $this->assertTrue($contact->is_default);
     }
 
     public function test_happy_case_default_contact_no_change()
@@ -154,13 +177,13 @@ class VerifyTest extends TestCase
         $response = $this->actingAs($this->user)
             ->putJson(
                 route(
-                    'admin.contacts.verify',
+                    'admin.contacts.default',
                     ['contact' => $contact]
                 ), ['status' => true]
             );
         $response->assertSuccessful();
         $response->assertJson([
-            'success' => 'The contact verifty status update success!',
+            'success' => 'The contact default status update success!',
             'status' => true,
         ]);
         $contact->refresh();
@@ -168,30 +191,7 @@ class VerifyTest extends TestCase
         $this->assertTrue($contact->is_default);
     }
 
-    public function test_happy_case_verified_contact_change_to_not_verified()
-    {
-        $contact = UserHasContact::factory()
-            ->create();
-        $contact->newVerifyCode();
-        $contact->lastVerification()->update(['verified_at' => now()]);
-        $response = $this->actingAs($this->user)
-            ->putJson(
-                route(
-                    'admin.contacts.verify',
-                    ['contact' => $contact]
-                ), ['status' => false]
-            );
-        $response->assertSuccessful();
-        $response->assertJson([
-            'success' => 'The contact verifty status update success!',
-            'status' => false,
-        ]);
-        $contact->refresh();
-        $this->assertFalse($contact->isVerified());
-        $this->assertFalse($contact->is_default);
-    }
-
-    public function test_happy_case_default_contact_change_to_not_verified()
+    public function test_happy_case_default_contact_change_to_non_default()
     {
         $contact = UserHasContact::factory()
             ->state(['is_default' => true])
@@ -201,17 +201,17 @@ class VerifyTest extends TestCase
         $response = $this->actingAs($this->user)
             ->putJson(
                 route(
-                    'admin.contacts.verify',
+                    'admin.contacts.default',
                     ['contact' => $contact]
                 ), ['status' => false]
             );
         $response->assertSuccessful();
         $response->assertJson([
-            'success' => 'The contact verifty status update success!',
+            'success' => 'The contact default status update success!',
             'status' => false,
         ]);
         $contact->refresh();
-        $this->assertFalse($contact->isVerified());
+        $this->assertTrue($contact->isVerified());
         $this->assertFalse($contact->is_default);
     }
 }
