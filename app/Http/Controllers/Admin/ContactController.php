@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Contact\UpdateRequest;
 use App\Http\Requests\StatusRequest;
 use App\Models\ContactHasVerification;
-use App\Models\User;
 use App\Models\UserHasContact;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -53,7 +52,7 @@ class ContactController extends Controller implements HasMiddleware
         }
 
         return [
-            'success' => 'The contact verifty status update success!',
+            'success' => "The {$contact->type} verifty status update success!",
             'status' => $contact->refresh()->isVerified(),
         ];
     }
@@ -70,12 +69,12 @@ class ContactController extends Controller implements HasMiddleware
         }
 
         return [
-            'success' => 'The contact default status update success!',
+            'success' => "The {$contact->type} default status update success!",
             'status' => $contact->is_default,
         ];
     }
 
-    public function update(UpdateRequest $request, User $user, UserHasContact $contact)
+    public function update(UpdateRequest $request, UserHasContact $contact)
     {
         DB::beginTransaction();
         $contact->update([
@@ -99,5 +98,12 @@ class ContactController extends Controller implements HasMiddleware
         DB::commit();
 
         return $return;
+    }
+
+    public function destroy(UserHasContact $contact)
+    {
+        $contact->delete();
+
+        return ['success' => "The {$contact->type} delete success!"];
     }
 }
