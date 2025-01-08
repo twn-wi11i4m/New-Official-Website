@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Contact\StoreRequest;
 use App\Http\Requests\Admin\Contact\UpdateRequest;
 use App\Http\Requests\StatusRequest;
 use App\Models\ContactHasVerification;
@@ -71,6 +72,32 @@ class ContactController extends Controller implements HasMiddleware
         return [
             'success' => "The {$contact->type} default status update success!",
             'status' => $contact->is_default,
+        ];
+    }
+
+    public function store(StoreRequest $request)
+    {
+        $contact = UserHasContact::create([
+            'user_id' => $request->user_id,
+            'type' => $request->type,
+            'contact' => $request->contact,
+            'is_default' => $request->is_default ?? false,
+        ]);
+        if ($request->is_verified ?? false || $contact->is_default ?? false) {
+            $this->verified($contact);
+        }
+
+        return [
+            'success' => "The {$contact->type} create success!",
+            'id' => $contact->id,
+            'type' => $contact->type,
+            'contact' => $contact->contact,
+            'is_default' => $contact->is_default,
+            'is_verified' => $contact->isVerified(),
+            'verify_url' => route('admin.contacts.verify', ['contact' => $contact]),
+            'default_url' => route('admin.contacts.default', ['contact' => $contact]),
+            'update_url' => route('admin.contacts.update', ['contact' => $contact]),
+            'delete_url' => route('admin.contacts.destroy', ['contact' => $contact]),
         ];
     }
 

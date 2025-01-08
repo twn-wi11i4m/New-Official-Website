@@ -28,7 +28,7 @@
                 @csrf
                 @method('put')
                 <button id="contactDefaultStatus{{ $contact->id }}" hidden
-                    name="status" value="{{ (int) ! $contact->isVerified() }}"
+                    name="status" value="{{ (int) ! $contact->is_default }}"
                     @class([
                         'btn',
                         'form-control',
@@ -37,7 +37,7 @@
                         'submitButton',
                         '{{ $contact->type }}DefaultContact',
                     ])>
-                    {{ $contact->isVerified() ? 'Default' : 'Non Default'}}
+                    {{ $contact->is_default ? 'Default' : 'Non Default'}}
                 </button>
                 <button class="btn btn-primary form-control" id="changingContactDefaultStatus{{ $contact->id }}" hidden disabled>
                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -77,10 +77,10 @@
                 <label class="form-control btn btn-outline-success" for="isVerifiedContactCheckbox{{ $contact->id }}">Verified</label>
             </div>
             <div class=" col-md-2">
-                <input type="checkbox" class="btn-check {{ $contact->type }}DefaultContactCheckbox" id="isDefaultContactCheckbox{{ $contact->id }}" @checked($contact->is_default)">
+                <input type="checkbox" class="btn-check {{ $contact->type }}DefaultContactCheckbox" id="isDefaultContactCheckbox{{ $contact->id }}" @checked($contact->is_default)>
                 <label class="form-control btn btn-outline-success" for="isDefaultContactCheckbox{{ $contact->id }}">Default</label>
             </div>
-            <button class="btn btn-primary col-md-1 submitButton" id="saveContact{{ $contact->id }}" form="editContactForm{{ $contact->id }}">Save</button>
+            <button class="btn btn-primary col-md-1 submitButton" id="saveContact{{ $contact->id }}">Save</button>
             <button class="btn btn-danger col-md-1" id="cancelEditContact{{ $contact->id }}" onclick="return false;">Cancel</button>
             <button class="btn btn-primary col-md-2" id="savingContact{{ $contact->id }}" hidden disabled>
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -89,7 +89,40 @@
         </form>
     @else
         <div class="row g-3">
-            <span class="col-md-3" id="contact{{ $contact->id }}">{{ $contact->contact }}</span>
+            <span class="col-md-3">{{ $contact->contact }}</span>
         </div>
     @endcan
 @endforeach
+@can('Edit:User')
+    <form class="row g-3 createContact" data-type="{{ $type }}" id="{{ $type }}CreateForm"
+        action="{{ route('admin.contacts.store') }}" method="POST" novalidate>
+        @csrf
+        <input type="hidden" name="user_id" value="{{ $userID }}">
+        <input type="hidden" name="type" value="{{ $type }}">
+        <input id="{{ $type }}ContactInput" class="col-md-3"
+            @switch($type)
+                @case('email')
+                    type="email" maxlength="320"
+                    placeholder="dammy@example.com"
+                    @break
+                @case('mobile')
+                    type="tel" minlength="5" maxlength="15"
+                    placeholder="85298765432"
+                    @break
+            @endswitch
+            name="contact" required />
+        <div class=" col-md-2">
+            <input type="checkbox" class="btn-check" id="{{ $type }}IsVerifiedCheckbox">
+            <label class="form-control btn btn-outline-success" for="{{ $type }}IsVerifiedCheckbox">Verified</label>
+        </div>
+        <div class=" col-md-2">
+            <input type="checkbox" class="btn-check" id="{{ $type }}IsDefaultCheckbox">
+            <label class="form-control btn btn-outline-success" for="{{ $type }}IsDefaultCheckbox">Default</label>
+        </div>
+        <button class="btn btn-success col-md-2 submitButton" id="{{ $type }}CreateButtob">Create</button>
+        <button class="btn btn-success col-md-2" id="{{ $type }}CreatingContact" hidden disabled>
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Creating
+        </button>
+    </form>
+@endcan

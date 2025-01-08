@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Requests\Contact;
+namespace App\Http\Requests\Admin\Contact;
 
+use App\Models\User;
 use App\Models\UserHasContact;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -20,7 +21,10 @@ class StoreRequest extends FormRequest
     public function rules(): array
     {
         $return = [
+            'user_id' => 'required|integer|exists:'.User::class.',id',
             'type' => 'required|string|in:email,mobile',
+            'is_verified' => 'sometimes|boolean',
+            'is_default' => 'sometimes|boolean',
             'contact' => ['required'],
         ];
         switch ($this->type) {
@@ -32,7 +36,7 @@ class StoreRequest extends FormRequest
                 break;
         }
         $return['contact'][] = Rule::unique(UserHasContact::class, 'contact')
-            ->where('user_id', $this->user()->id)
+            ->where('user_id', $this->user_id)
             ->where('type', $this->type);
 
         return $return;
@@ -41,9 +45,14 @@ class StoreRequest extends FormRequest
     public function messages(): array
     {
         $return = [
+            'user_id.required' => 'The user field is required, if you are using our CMS, please contact I.T. officer.',
+            'user_id.integer' => 'The user field must be an integer, if you are using our CMS, please contact I.T. officer.',
+            'user_id.exists' => 'User is ont found, may be deleted, if you are using our CMS, please refresh. Than, if refresh is not show 404, please contact I.T. officer.',
             'type.required' => 'The type field is required, if you are using our CMS, please contact I.T. officer.',
             'type.string' => 'The type field must be a string, if you are using our CMS, please contact I.T. officer.',
             'type.in' => 'The selected type is invalid, if you are using our CMS, please contact I.T. officer.',
+            'is_verified.boolean' => 'The verified field must be true or false. if you are using our CMS, please contact I.T. officer.',
+            'is_default.boolean' => 'The default field must be true or false. if you are using our CMS, please contact I.T. officer.',
         ];
         if (! is_array($this->type)) {
             $return = array_merge($return, [
