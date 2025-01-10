@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Models\UserHasContact;
 use App\Notifications\ResetPassword as ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -55,7 +54,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_missing_passport_type_id()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -79,7 +78,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_passport_type_id_is_not_integer()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -104,7 +103,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_passport_type_id_is_not_exist()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -129,7 +128,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_missing_passport_number()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -153,7 +152,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_passport_number_format_not_match()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -178,7 +177,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_passport_number_too_short()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -203,7 +202,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_passport_number_too_long()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -228,7 +227,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_missing_birthday()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -252,7 +251,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_birthday_is_not_date()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -277,7 +276,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_birthday_too_close()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -304,7 +303,7 @@ class ForgetPasswordTest extends TestCase
     public function test_missing_verified_contact_type()
     {
         $contact = '';
-        switch (Arr::random(['email', 'mobile'])) {
+        switch (fake()->randomElement(['email', 'mobile'])) {
             case 'email':
                 $contact = fake()->freeEmail();
                 break;
@@ -326,7 +325,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_verified_contact_type_is_not_string()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
@@ -352,7 +351,7 @@ class ForgetPasswordTest extends TestCase
     public function test_verified_contact_type_is_not_in_list()
     {
         $contact = '';
-        switch (Arr::random(['email', 'mobile'])) {
+        switch (fake()->randomElement(['email', 'mobile'])) {
             case 'email':
                 $contact = fake()->freeEmail();
                 break;
@@ -381,7 +380,7 @@ class ForgetPasswordTest extends TestCase
                 'passport_type_id' => 3,
                 'passport_number' => '12345678',
                 'birthday' => now()->subYears(2)->format('Y-m-d'),
-                'verified_contact_type' => Arr::random(['email', 'mobile']),
+                'verified_contact_type' => fake()->randomElement(['email', 'mobile']),
             ]
         );
         $response->assertInvalid(['verified_contact' => 'The verified contact field is required.']);
@@ -449,7 +448,7 @@ class ForgetPasswordTest extends TestCase
 
     public function test_account_not_found()
     {
-        $type = Arr::random(['email', 'mobile']);
+        $type = fake()->randomElement(['email', 'mobile']);
         $contact = '';
         switch ($type) {
             case 'email':
