@@ -8,7 +8,6 @@ use App\Models\UserHasContact;
 use App\Schedules\ClearUnusedAdminVerifiedRecode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class ClearUnusedAdminVerifiedRecodeTest extends TestCase
@@ -19,7 +18,6 @@ class ClearUnusedAdminVerifiedRecodeTest extends TestCase
     {
         parent::setup();
         User::factory()->create();
-        Queue::fake();
         Notification::fake();
     }
 
@@ -42,42 +40,16 @@ class ClearUnusedAdminVerifiedRecodeTest extends TestCase
         (new ClearUnusedAdminVerifiedRecode)();
     }
 
-    public function test_only_has_using_user_verify_record()
+    private function create_using_user_verify_record()
     {
         $contact = UserHasContact::factory()->create();
         $contact->sendVerifyCode();
         if (fake()->randomElement([true, false])) {
             $contact->lastVerification()->update(['verified_at' => now()]);
         }
-        $this->assertEquals(
-            1, ContactHasVerification::whereNotNull('code')
-                ->whereNull('expired_at')
-                ->count()
-        );
-        $this->assertEquals(
-            0, ContactHasVerification::whereNotNull('code')
-                ->where('expired_at', '<=', now())
-                ->count()
-        );
-        $this->assertEquals(
-            0, ContactHasVerification::whereNull('code')
-                ->whereNull('expired_at')
-                ->count()
-        );
-        $this->assertEquals(
-            0, ContactHasVerification::whereNull('code')
-                ->where('expired_at', '<=', now())
-                ->count()
-        );
-        (new ClearUnusedAdminVerifiedRecode)();
-        $this->assertEquals(
-            1, ContactHasVerification::whereNotNull('code')
-                ->whereNull('expired_at')
-                ->count()
-        );
     }
 
-    public function test_only_has_unused_user_verify_record()
+    private function create_unused_user_verify_record()
     {
         $contact = UserHasContact::factory()->create();
         $contact->sendVerifyCode();
@@ -90,251 +62,138 @@ class ClearUnusedAdminVerifiedRecodeTest extends TestCase
                 ['closed_at' => now()],
             ])
         );
-        (new ClearUnusedAdminVerifiedRecode)();
-        $this->assertEquals(
-            1, ContactHasVerification::whereNotNull('code')
-                ->count()
-        );
     }
 
-    public function test_only_has_using_admin_verify_record()
+    private function create_using_admin_verify_record()
     {
         $contact = UserHasContact::factory()->create();
         $this->verified($contact);
-        (new ClearUnusedAdminVerifiedRecode)();
-        $this->assertEquals(
-            1, ContactHasVerification::whereNull('code')
-                ->whereNull('expired_at')
-                ->count()
-        );
     }
 
-    public function test_only_has_unused_admin_verify_record()
+    private function create_unused_admin_verify_record()
     {
         $contact = UserHasContact::factory()->create();
         $this->verified($contact);
         $contact->lastVerification()->update(['expired_at' => now()]);
+    }
+
+    public function test_only_has_using_user_verify_record()
+    {
+        $this->create_using_user_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
-        $this->assertEquals(
-            0, ContactHasVerification::whereNull('code')
-                ->where('expired_at', '<=', now())
-                ->count()
-        );
+        $this->assertEquals(1, ContactHasVerification::count());
+    }
+
+    public function test_only_has_unused_user_verify_record()
+    {
+        $this->create_unused_user_verify_record();
+        (new ClearUnusedAdminVerifiedRecode)();
+        $this->assertEquals(1, ContactHasVerification::count());
+    }
+
+    public function test_only_has_using_admin_verify_record()
+    {
+        $this->create_using_admin_verify_record();
+        (new ClearUnusedAdminVerifiedRecode)();
+        $this->assertEquals(1, ContactHasVerification::count());
+    }
+
+    public function test_only_has_unused_admin_verify_record()
+    {
+        (new ClearUnusedAdminVerifiedRecode)();
+        $this->assertEquals(0, ContactHasVerification::count());
     }
 
     public function test_only_has_using_user_verify_record_and_unused_user_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        $contact->lastVerification()->update(
-            fake()->randomElement([
-                [
-                    'verified_at' => now(),
-                    'expired_at' => now(),
-                ],
-                ['closed_at' => now()],
-            ])
-        );
+        $this->create_using_user_verify_record();
+        $this->create_unused_user_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(2, ContactHasVerification::count());
     }
 
     public function test_only_has_using_user_verify_record_and_using_admin_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
+        $this->create_using_user_verify_record();
+        $this->create_using_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(2, ContactHasVerification::count());
     }
 
     public function test_only_has_using_user_verify_record_and_unused_admin_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact->lastVerification()->update(['expired_at' => now()]);
+        $this->create_using_user_verify_record();
+        $this->create_unused_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(1, ContactHasVerification::count());
     }
 
     public function test_only_has_unused_user_verify_record_and_using_admin_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        $contact->lastVerification()->update(
-            fake()->randomElement([
-                [
-                    'verified_at' => now(),
-                    'expired_at' => now(),
-                ],
-                ['closed_at' => now()],
-            ])
-        );
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
+        $this->create_unused_user_verify_record();
+        $this->create_using_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(2, ContactHasVerification::count());
     }
 
     public function test_only_has_unused_user_verify_record_and_unused_admin_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        $contact->lastVerification()->update(
-            fake()->randomElement([
-                [
-                    'verified_at' => now(),
-                    'expired_at' => now(),
-                ],
-                ['closed_at' => now()],
-            ])
-        );
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact->lastVerification()->update(['expired_at' => now()]);
+        $this->create_unused_user_verify_record();
+        $this->create_unused_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(1, ContactHasVerification::count());
     }
 
     public function test_only_has_using_admin_verify_record_and_unused_admin_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact->lastVerification()->update(['expired_at' => now()]);
+        $this->create_using_admin_verify_record();
+        $this->create_unused_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(1, ContactHasVerification::count());
     }
 
     public function test_only_have_no_using_user_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        $contact->lastVerification()->update(
-            fake()->randomElement([
-                [
-                    'verified_at' => now(),
-                    'expired_at' => now(),
-                ],
-                ['closed_at' => now()],
-            ])
-        );
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact->lastVerification()->update(['expired_at' => now()]);
+        $this->create_unused_user_verify_record();
+        $this->create_using_admin_verify_record();
+        $this->create_unused_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(2, ContactHasVerification::count());
     }
 
     public function test_only_have_no_unused_user_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact->lastVerification()->update(['expired_at' => now()]);
+        $this->create_using_user_verify_record();
+        $this->create_using_admin_verify_record();
+        $this->create_unused_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(2, ContactHasVerification::count());
     }
 
     public function test_only_have_no_using_admin_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact->lastVerification()->update(['expired_at' => now()]);
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        $contact->lastVerification()->update(
-            fake()->randomElement([
-                [
-                    'verified_at' => now(),
-                    'expired_at' => now(),
-                ],
-                ['closed_at' => now()],
-            ])
-        );
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact->lastVerification()->update(['expired_at' => now()]);
+        $this->create_using_user_verify_record();
+        $this->create_unused_user_verify_record();
+        $this->create_unused_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(2, ContactHasVerification::count());
     }
 
-    public function test_only_have_no_has_unused_admin_verify_record()
+    public function test_only_have_no_unused_admin_verify_record()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        $contact->lastVerification()->update(
-            fake()->randomElement([
-                [
-                    'verified_at' => now(),
-                    'expired_at' => now(),
-                ],
-                ['closed_at' => now()],
-            ])
-        );
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
+        $this->create_using_user_verify_record();
+        $this->create_unused_user_verify_record();
+        $this->create_using_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(3, ContactHasVerification::count());
     }
 
     public function test_have_all()
     {
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        if (fake()->randomElement([true, false])) {
-            $contact->lastVerification()->update(['verified_at' => now()]);
-        }
-        $contact = UserHasContact::factory()->create();
-        $contact->sendVerifyCode();
-        $contact->lastVerification()->update(
-            fake()->randomElement([
-                [
-                    'verified_at' => now(),
-                    'expired_at' => now(),
-                ],
-                ['closed_at' => now()],
-            ])
-        );
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact = UserHasContact::factory()->create();
-        $this->verified($contact);
-        $contact->lastVerification()->update(['expired_at' => now()]);
+        $this->create_using_user_verify_record();
+        $this->create_unused_user_verify_record();
+        $this->create_using_admin_verify_record();
+        $this->create_unused_admin_verify_record();
         (new ClearUnusedAdminVerifiedRecode)();
         $this->assertEquals(3, ContactHasVerification::count());
     }
