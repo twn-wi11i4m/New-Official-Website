@@ -19,19 +19,19 @@ class PermissionController extends Controller implements HasMiddleware
 
     public function index()
     {
-        return view('admin.permission')
+        return view('admin.permissions')
             ->with('permissions', Permission::orderBy('display_order')->get());
     }
 
     public function update(NameRequest $request, Permission $permission)
     {
         if ($request->name != $permission->title) {
-            $permission->update(['tit;e' => $request->name]);
+            $permission->update(['title' => $request->name]);
         }
 
         return [
             'success' => 'The permission display name update success!',
-            'name' => $request->name,
+            'name' => $permission->title,
         ];
     }
 

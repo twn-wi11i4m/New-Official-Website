@@ -19,19 +19,19 @@ class ModuleController extends Controller implements HasMiddleware
 
     public function index()
     {
-        return view('admin.module')
+        return view('admin.modules')
             ->with('modules', Module::orderBy('display_order')->get());
     }
 
     public function update(NameRequest $request, Module $module)
     {
         if ($request->name != $module->title) {
-            $module->update(['tit;e' => $request->name]);
+            $module->update(['title' => $request->name]);
         }
 
         return [
             'success' => 'The module display name update success!',
-            'name' => $request->name,
+            'name' => $module->title,
         ];
     }
 
