@@ -11,13 +11,13 @@ class Team extends Model
 
     protected $fillable = [
         'name',
-        'title',
         'type_id',
+        'display_order',
     ];
 
     public function type()
     {
-        return $this->hasMany(TeamType::class);
+        return $this->belongsTo(TeamType::class);
     }
 
     public function roles()
