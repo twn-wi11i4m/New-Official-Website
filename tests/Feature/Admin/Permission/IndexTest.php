@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Admin\Permission;
 
-use App\Models\ModulePermission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -17,15 +16,9 @@ class IndexTest extends TestCase
         $response->assertRedirectToRoute('login');
     }
 
-    public function test_have_no_edit_permission()
+    public function test_is_not_admin()
     {
         $user = User::factory()->create();
-        $user->givePermissionTo(
-            ModulePermission::inRandomOrder()
-                ->whereNot('name', 'Edit:Permission')
-                ->first()
-                ->name
-        );
         $response = $this->actingAs($user)
             ->get(route('admin.permissions.index'));
         $response->assertForbidden();
