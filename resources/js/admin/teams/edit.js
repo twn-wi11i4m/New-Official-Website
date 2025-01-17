@@ -7,8 +7,8 @@ const type = document.getElementById('validationType');
 const typeFeedback = document.getElementById('typeFeedback');
 const displayOrder = document.getElementById('validationDisplayOrder');
 const displayOrderFeedback = document.getElementById('displayOrderFeedback');
-const createButton = document.getElementById('createButton');
-const creatingButton = document.getElementById('creatingButton');
+const saveButton = document.getElementById('saveButton');
+const savingButton = document.getElementById('savingButton');
 
 type.addEventListener(
     'change', function(event) {
@@ -75,8 +75,8 @@ function validation() {
 }
 
 function successCallback(response) {
-    creatingButton.hidden = true;
-    createButton.hidden = false;
+    savingButton.hidden = true;
+    saveButton.hidden = false;
     window.location.href = response.request.responseURL;
 }
 
@@ -121,23 +121,23 @@ function failCallback(error) {
             input.classList.add('is-valid');
         }
     }
-    creatingButton.hidden = true;
-    createButton.hidden = false;
+    savingButton.hidden = true;
+    saveButton.hidden = false;
 }
 
 form.addEventListener(
     'submit', function (event) {
         event.preventDefault();
-        if(creatingButton.hidden) {
+        if(savingButton.hidden) {
             if(validation()) {
-                createButton.hidden = true;
-                creatingButton.hidden = false;
+                saveButton.hidden = true;
+                savingButton.hidden = false;
                 let data = {
                     name: name.value,
                     type_id: type.value,
                     display_order: displayOrder.value,
                 }
-                post(form.action, successCallback, failCallback, 'post', data);
+                post(form.action, successCallback, failCallback, 'put', data);
             }
         }
     }
