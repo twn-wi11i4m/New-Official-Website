@@ -104,6 +104,22 @@ class UpdateTest extends TestCase
         $response->assertInvalid(['name' => 'The name field must be a string.']);
     }
 
+    public function test_name_too_long()
+    {
+        $data = $this->happyCase;
+        $data['name'] = str_repeat('a', 171);
+        $response = $this->actingAs($this->user)->putJson(
+            route(
+                'admin.teams.update',
+                [
+                    'team' => Team::inRandomOrder()->first(),
+                ]
+            ),
+            $data
+        );
+        $response->assertInvalid(['name' => 'The name field must not be greater than 170 characters.']);
+    }
+
     public function test_name_has_colon()
     {
         $data = $this->happyCase;
@@ -136,7 +152,7 @@ class UpdateTest extends TestCase
             ),
             $data
         );
-        $response->assertInvalid(['name' => 'The name of team type has already been taken.']);
+        $response->assertInvalid(['name' => 'The name of team in this type has already been taken.']);
     }
 
     public function test_missing_type_id()
