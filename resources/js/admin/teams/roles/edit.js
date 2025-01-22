@@ -6,8 +6,8 @@ const nameFeedback = document.getElementById('nameFeedback');
 const displayOrder = document.getElementById('validationDisplayOrder');
 const displayOrderFeedback = document.getElementById('displayOrderFeedback');
 const permissions = document.getElementsByClassName('permission');
-const createButton = document.getElementById('createButton');
-const creatingButton = document.getElementById('creatingButton');
+const saveButton = document.getElementById('saveButton');
+const savingButton = document.getElementById('savingButton');
 
 const inputs = [name, displayOrder];
 
@@ -57,8 +57,8 @@ function validation() {
 }
 
 function successCallback(response) {
-    creatingButton.hidden = true;
-    createButton.hidden = false;
+    savingButton.hidden = true;
+    saveButton.hidden = false;
     window.location.href = response.request.responseURL;
 }
 
@@ -103,31 +103,28 @@ function failCallback(error) {
             input.classList.add('is-valid');
         }
     }
-    creatingButton.hidden = true;
-    createButton.hidden = false;
+    savingButton.hidden = true;
+    saveButton.hidden = false;
 }
 
 form.addEventListener(
     'submit', function (event) {
         event.preventDefault();
-        if(creatingButton.hidden) {
+        if(savingButton.hidden) {
             if(validation()) {
-                createButton.hidden = true;
-                creatingButton.hidden = false;
+                saveButton.hidden = true;
+                savingButton.hidden = false;
                 let data = {
                     name: name.value,
                     display_order: displayOrder.value,
+                    module_permissions: [],
                 }
-                let modulePermissions = [];
                 for(let permission of permissions) {
                     if(permission.checked) {
-                        module_permissions.push(permission.value);
+                        data.module_permissions.push(permission.value);
                     }
                 }
-                if(modulePermissions.length) {
-                    data[module_permissions] = modulePermissions;
-                }
-                post(form.action, successCallback, failCallback, 'post', data);
+                post(form.action, successCallback, failCallback, 'put', data);
             }
         }
     }

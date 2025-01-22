@@ -21,20 +21,25 @@ class FormRequest extends BaseFormRequest
     {
         $team = $this->route('team');
         $maxDisplayOrder = TeamRole::where('team_id', $team->id)
-            ->max('display_order') + 1;
+            ->max('display_order');
         $unique = Rule::unique(Role::class, 'name')
             ->whereIn(
                 'id', $team->roles
                     ->pluck('id')
                     ->toArray()
             );
-        $modulePermissionIDs = ModulePermission::get('id');
-        $modulePermissionIDs = $modulePermissionIDs->implode('id', ',');
+        if ($this->method() == 'POST') {
+            $maxDisplayOrder++;
+        } else {
+            $unique = $unique->ignore($this->route('role'));
+        }
+        $modulePermissionIDs = ModulePermission::get('id')
+            ->implode('id', ',');
 
         return [
             'name' => ['required', 'string', 'max:170', 'regex:/^(?!.*:).*$/', $unique],
             'display_order' => "required|integer|min:0|max:$maxDisplayOrder",
-            'module_permissions' => 'present|array',
+            'module_permissions' => 'sometimes|array',
             'module_permissions.*' => "required|integer|distinct|in:$modulePermissionIDs",
         ];
     }

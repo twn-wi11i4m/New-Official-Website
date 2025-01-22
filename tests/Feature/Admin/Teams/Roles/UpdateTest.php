@@ -3,13 +3,14 @@
 namespace Tests\Feature\Admin\Teams\Roles;
 
 use App\Models\ModulePermission;
+use App\Models\Role;
 use App\Models\Team;
 use App\Models\TeamRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class StoreTest extends TestCase
+class UpdateTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -32,10 +33,14 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
-        $response = $this->postJson(
+        $role = $team->roles()->inRandomOrder()->first();
+        $response = $this->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $this->happyCase
         );
@@ -47,6 +52,7 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $user = User::factory()->create();
         $user->givePermissionTo(
             ModulePermission::inRandomOrder()
@@ -54,10 +60,13 @@ class StoreTest extends TestCase
                 ->first()
                 ->name
         );
-        $response = $this->actingAs($user)->postJson(
+        $response = $this->actingAs($user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $this->happyCase
         );
@@ -66,10 +75,30 @@ class StoreTest extends TestCase
 
     public function test_team_is_not_exist()
     {
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => 0]
+                'admin.teams.roles.update',
+                [
+                    'team' => 0,
+                    'role' => Role::inRandomOrder()->first(),
+                ]
+            ),
+            $this->happyCase
+        );
+        $response->assertNotFound();
+    }
+
+    public function test_role_is_not_exist()
+    {
+        $response = $this->actingAs($this->user)->putJson(
+            route(
+                'admin.teams.roles.update',
+                [
+                    'team' => Team::inRandomOrder()
+                        ->whereNot('type_id', 1)
+                        ->first(),
+                    'role' => 0,
+                ]
             ),
             $this->happyCase
         );
@@ -81,12 +110,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         unset($data['name']);
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -98,12 +131,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['name'] = ['abc'];
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -115,12 +152,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['name'] = str_repeat('a', 171);
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -132,12 +173,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['name'] = 'abc:efg';
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -147,14 +192,23 @@ class StoreTest extends TestCase
     public function test_name_is_exist_for_team()
     {
         $team = Team::inRandomOrder()
+            ->has('roles', '>', 1)
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
-        $data['name'] = $team->roles()->inRandomOrder()->first()->name;
-        $response = $this->actingAs($this->user)->postJson(
+        $data['name'] = $team->roles()
+            ->whereNot('role_id', $role->id)
+            ->inRandomOrder()
+            ->first()
+            ->name;
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -166,12 +220,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         unset($data['display_order']);
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -183,12 +241,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['display_order'] = 'abc';
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -200,12 +262,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['display_order'] = '-1';
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -217,13 +283,17 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['display_order'] = TeamRole::where('team_id', $team->id)
-            ->max('display_order') + 2;
-        $response = $this->actingAs($this->user)->postJson(
+            ->max('display_order') + 1;
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -235,12 +305,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['module_permissions'] = 'abc';
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -252,12 +326,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['module_permissions'][] = 'abc';
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -269,13 +347,17 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $permission = ModulePermission::inRandomOrder()->first();
         $data['module_permissions'] = [$permission->id, $permission->id];
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -287,12 +369,16 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $data = $this->happyCase;
         $data['module_permissions'][] = 0;
-        $response = $this->actingAs($this->user)->postJson(
+        $response = $this->actingAs($this->user)->putJson(
             route(
-                'admin.teams.roles.store',
-                ['team' => $team]
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
             ),
             $data
         );
@@ -304,20 +390,26 @@ class StoreTest extends TestCase
         $team = Team::inRandomOrder()
             ->whereNot('type_id', 1)
             ->first();
-        $data = $this->happyCase;
-        $permission = ModulePermission::inRandomOrder()->first();
-        $data['module_permissions'][] = $permission->id;
-        $response = $this->actingAs($this->user)->postJson(
-            route(
-                'admin.teams.roles.store',
-                ['team' => $team]
-            ),
-            $data
-        );
-        $role = $team->roles()->latest('id')->first();
+        $role = $team->roles()->inRandomOrder()->first();
         $teamRole = TeamRole::where('team_id', $team->id)
             ->where('role_id', $role->id)
             ->first();
+        $teamRole->syncPermissions([]);
+        $data = $this->happyCase;
+        $permission = ModulePermission::inRandomOrder()->first();
+        $data['module_permissions'][] = $permission->id;
+        $response = $this->actingAs($this->user)->putJson(
+            route(
+                'admin.teams.roles.update',
+                [
+                    'team' => $team,
+                    'role' => $role,
+                ]
+            ),
+            $data
+        );
+        $role->refresh();
+        $teamRole->refresh();
         $response->assertRedirectToRoute('admin.teams.show', ['team' => $team]);
         $this->assertEquals($data['name'], $role->name);
         $this->assertEquals($data['display_order'], $teamRole->display_order);
