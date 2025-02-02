@@ -180,7 +180,7 @@ class UpdateTest extends TestCase
         );
         $response->assertSuccessful();
         $response->assertJson([
-            'success' => 'Update proctor success',
+            'success' => 'The proctor update success',
             'user_id' => $this->user->id,
             'name' => $this->user->name,
             'show_user_url' => route(
@@ -189,6 +189,13 @@ class UpdateTest extends TestCase
             ),
             'update_proctor_url' => route(
                 'admin.admission-tests.proctors.update',
+                [
+                    'admission_test' => $this->test,
+                    'proctor' => $this->user,
+                ]
+            ),
+            'delete_proctor_url' => route(
+                'admin.admission-tests.proctors.destroy',
                 [
                     'admission_test' => $this->test,
                     'proctor' => $this->user,
@@ -212,7 +219,7 @@ class UpdateTest extends TestCase
         );
         $response->assertSuccessful();
         $response->assertJson([
-            'success' => 'Update proctor success',
+            'success' => 'The proctor update success',
             'user_id' => $user->id,
             'name' => $user->name,
             'show_user_url' => route(
@@ -221,6 +228,13 @@ class UpdateTest extends TestCase
             ),
             'update_proctor_url' => route(
                 'admin.admission-tests.proctors.update',
+                [
+                    'admission_test' => $this->test,
+                    'proctor' => $user,
+                ]
+            ),
+            'delete_proctor_url' => route(
+                'admin.admission-tests.proctors.destroy',
                 [
                     'admission_test' => $this->test,
                     'proctor' => $user,

@@ -319,9 +319,9 @@ function saveProctorSuccessCallback(response) {
     bootstrapAlert(response.data.success);
     let id = urlGetProctorID(response.request.responseURL);
     users[response.data.user_id] = response.data.name;
-    let form = document.getElementById('editProctor'+id+'Form');
+    let form = document.getElementById('editProctorForm'+id);
     form.hidden = true;
-    form.id = 'editProctor'+response.data.user_id+'Form';
+    form.id = 'editProctorForm'+response.data.user_id;
     form.action = response.data.update_proctor_url;
     let savingButton = document.getElementById('savingProctor'+id);
     savingButton.hidden = true;
@@ -337,7 +337,8 @@ function saveProctorSuccessCallback(response) {
     input.dataset.value = input.value;
     input.id = 'proctorUserIdInput'+response.data.user_id;
     let proctorName = document.getElementById('proctorName'+id);
-    proctorName.id = 'proctorName'+response.data.name;
+    proctorName.id = 'proctorName'+response.data.user_id;
+    proctorName.innerText = response.data.name;
     let showProctorId = document.getElementById('showProctorId'+id);
     showProctorId.id = 'showProctorId'+response.data.user_id;
     showProctorId.innerText = response.data.user_id;
@@ -349,6 +350,12 @@ function saveProctorSuccessCallback(response) {
     showProctorLink.href = response.data.show_user_url;
     let editButton = document.getElementById('editProctor'+id);
     editButton.id = 'editProctor'+response.data.user_id;
+    let deleteForm = document.getElementById('deleteProctorForm'+id);
+    deleteForm.id = 'deleteProctorForm'+response.data.user_id;
+    deleteForm.action = response.data.delete_proctor_url;
+    let deleteButton = document.getElementById('deleteProctor'+id);
+    deleteButton.id = 'deleteProctor'+response.data.user_id;
+    deleteButton.setAttribute('form', deleteForm.id);
     let showProctor = document.getElementById('showProctor'+id);
     showProctor.id = 'showProctor'+response.data.user_id;
     showProctor.hidden = false;
@@ -371,7 +378,7 @@ function saveProctor(event) {
     if(submitting == '') {
         let submitAt = Date.now();
         submitting = 'updateProctor'+submitAt;
-        let id = event.target.id.match(/^editProctor([0-9]+)Form/i)[1];
+        let id = event.target.id.replace('editProctorForm', '');
         let input = document.getElementById('proctorUserIdInput'+id);
         disableSubmitting();
         if(submitting == 'updateProctor'+submitAt) {
@@ -391,7 +398,7 @@ function saveProctor(event) {
 
 function cancelEditProctor(event) {
     let id = event.target.id.replace('cancelEditProctor', '');
-    document.getElementById('editProctor'+id+'Form').hidden = true;
+    document.getElementById('editProctorForm'+id).hidden = true;
     let input = document.getElementById('proctorUserIdInput'+id);
     input.value = input.dataset.value;
     document.getElementById('proctorName'+id).innerText = users[input.value] ?? '';
@@ -401,7 +408,54 @@ function cancelEditProctor(event) {
 function editProctor(event) {
     let id = event.target.id.replace('editProctor', '');
     document.getElementById('showProctor'+id).hidden = true;
-    document.getElementById('editProctor'+id+'Form').hidden = false;
+    document.getElementById('editProctorForm'+id).hidden = false;
+}
+
+function deleteProctorSuccessCallback(response) {
+    bootstrapAlert(response.data.success);
+    let id =  urlGetProctorID(response.request.responseURL);
+    document.getElementById('showProctor'+id).remove();
+    document.getElementById('editProctorForm'+id).remove();
+    enableSubmitting();
+}
+
+function deleteProctorFailCallback(error) {
+    let id = urlGetProctorID(error.request.responseURL);
+    let editButton = document.getElementById('editProctor'+id);
+    editButton.addEventListener('click', editProctor);
+    editButton.disabled = false;
+    enableSubmitting();
+}
+
+function confirmedDeleteProctor(event) {
+    if(submitting == '') {
+        let submitAt = Date.now();
+        submitting = 'deleteProctor'+submitAt;
+        disableSubmitting();
+        let id = event.target.id.replace('deleteProctorForm', '');
+        let editButton = document.getElementById('editProctor'+id)
+        editButton.removeEventListener('click', editProctor);
+        editButton.disabled = true;
+        if(submitting == 'deleteProctor'+submitAt) {
+            post(
+                event.target.action,
+                deleteProctorSuccessCallback,
+                deleteProctorFailCallback,
+                'delete'
+            );
+        } else {
+            editButton.addEventListener('click', editContact);
+            editButton.disabled = false;
+        }
+    }
+}
+
+function deleteProctor(event) {
+    event.preventDefault();
+    let id = event.target.id.replace('deleteProctorForm', '');
+    let showProctorName = document.getElementById('showProctorName'+id);
+    let message = `Are you sure to delete the proctor of ${showProctorName.innerText}?`;
+    bootstrapConfirm(message, confirmedDeleteProctor, event);
 }
 
 function setProctorEventListeners(loader) {
@@ -411,7 +465,7 @@ function setProctorEventListeners(loader) {
             document.getElementById('proctorName'+id).innerText = users[event.target.value] ?? '';
         }
     )
-    document.getElementById('editProctor'+id+'Form').addEventListener(
+    document.getElementById('editProctorForm'+id).addEventListener(
         'submit', saveProctor
     )
     document.getElementById('cancelEditProctor'+id).addEventListener(
@@ -419,8 +473,12 @@ function setProctorEventListeners(loader) {
     )
     let editButton = document.getElementById('editProctor'+id);
     editButton.addEventListener('click', editProctor);
+    document.getElementById('deleteProctorForm'+id).addEventListener(
+        'submit', deleteProctor
+    );
     loader.remove();
     editButton.hidden = false;
+    document.getElementById('deleteProctor'+id).hidden = false;
 }
 
 document.querySelectorAll('.proctorLoader').forEach(
@@ -451,7 +509,7 @@ function createProctorSuccessCallback(response) {
     bootstrapAlert(response.data.success);
     let formElement = document.createElement('form');
     formElement.className = 'row g-3';
-    formElement.id = 'editProctor'+response.data.user_id+'Form';
+    formElement.id = 'editProctorForm'+response.data.user_id;
     formElement.method = 'POST';
     formElement.noValidate = true;
     formElement.hidden = true;
@@ -476,9 +534,14 @@ function createProctorSuccessCallback(response) {
         <div class="col-md-2" id="showProctorId${response.data.user_id}">${response.data.user_id}</div>
         <div class="col-md-4" id="showProctorName${response.data.user_id}">${response.data.name}</div>
         <div class="col-md-6">
+            <form method="POST" id="deleteProctorForm${response.data.user_id}" action="${response.data.delete_proctor_url}" hidden>
+                @csrf
+                @method('DELETE')
+            </form>
             <a id="showProctorLink${response.data.user_id}" href="${response.data.show_user_url}" class="btn btn-primary col-md-4">Show</a>
             <span class="spinner-border spinner-border-sm proctorLoader" id="proctorLoader${response.data.user_id}" role="status" aria-hidden="true"></span>
             <button class="btn btn-primary col-md-4" id="editProctor${response.data.user_id}" hidden>Edit</button>
+            <button class="btn btn-danger col-md-4" id="deleteProctor${response.data.user_id}" form="deleteProctorForm${response.data.user_id}" hidden>Delete</button>
         </div>
     `;
     proctor.insertBefore(rowElement, formElement);
