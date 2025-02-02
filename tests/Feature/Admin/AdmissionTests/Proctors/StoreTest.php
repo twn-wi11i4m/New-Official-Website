@@ -138,9 +138,16 @@ class StoreTest extends TestCase
             'success' => 'Add proctor success',
             'user_id' => $this->user->id,
             'name' => $this->user->name,
-            'user_show_url' => route(
+            'show_user_url' => route(
                 'admin.users.show',
                 ['user' => $this->user]
+            ),
+            'update_proctor_url' => route(
+                'admin.admission-tests.proctors.update',
+                [
+                    'admission_test' => $this->test,
+                    'proctor' => $this->user,
+                ]
             ),
         ]);
     }
