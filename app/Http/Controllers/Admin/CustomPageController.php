@@ -12,7 +12,15 @@ class CustomPageController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        return [(new Middleware('permission:Edit:Custom Page'))->except('index')];
+        return [(new Middleware('permission:Edit:Custom Page'))];
+    }
+
+    public function index()
+    {
+        $pages = CustomPage::sortable()->paginate();
+
+        return view('admin.custom-pages.index')
+            ->with('pages', $pages);
     }
 
     public function create()
@@ -34,6 +42,6 @@ class CustomPageController extends Controller implements HasMiddleware
             'content' => $request->content,
         ]);
 
-        return redirect()->route('admin.index');
+        return redirect()->route('admin.custom-pages.index');
     }
 }
