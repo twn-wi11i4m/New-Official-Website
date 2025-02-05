@@ -17,7 +17,7 @@ class CustomPageController extends Controller implements HasMiddleware
 
     public function index()
     {
-        $pages = CustomPage::sortable()->paginate();
+        $pages = CustomPage::sortable()->get();
 
         return view('admin.custom-pages.index')
             ->with('pages', $pages);
@@ -66,5 +66,12 @@ class CustomPageController extends Controller implements HasMiddleware
         ]);
 
         return redirect()->route('admin.custom-pages.index');
+    }
+
+    public function destroy(CustomPage $customPage)
+    {
+        $customPage->delete();
+
+        return ['success' => "The custom page of \"{$customPage->title}\" delete success!"];
     }
 }
