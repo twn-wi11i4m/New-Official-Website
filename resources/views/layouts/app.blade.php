@@ -323,12 +323,25 @@
                                         ),
                                     ])>
                                         <li>
+                                            <a href="{{ route('admin.custom-pages.index') }}" @class([
+                                                'nav-link',
+                                                'align-items-center',
+                                                'active' => Route::current()->getName() == 'admin.custom-pages.index',
+                                            ])>Index</a>
+                                        </li>
+                                        <li>
                                             <a href="{{ route('admin.custom-pages.create') }}" @class([
                                                 'nav-link',
                                                 'align-items-center',
                                                 'active' => Route::current()->getName() == 'admin.custom-pages.create',
                                             ])>Create</a>
                                         </li>
+                                        @if(Route::current()->getName() == 'admin.custom-pages.edit')
+                                            <li>
+                                                <a href="{{ route('admin.custom-pages.edit', ['custom_page' => $page]) }}"
+                                                    class="nav-link align-items-center active">Edit</a>
+                                            </li>
+                                        @endif
                                     </ul>
                                 </li>
                             @endcan

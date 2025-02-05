@@ -44,4 +44,27 @@ class CustomPageController extends Controller implements HasMiddleware
 
         return redirect()->route('admin.custom-pages.index');
     }
+
+    public function edit(CustomPage $customPage)
+    {
+        return view('admin.custom-pages.edit')
+            ->with('page', $customPage);
+    }
+
+    public function update(CustomPageRequest $request, CustomPage $customPage)
+    {
+        $pathname = preg_replace('/\/+/', '/', $request->pathname);
+        if (str_starts_with($pathname, '/')) {
+            $pathname = substr($request->pathname, 1);
+        }
+        $customPage->update([
+            'pathname' => strtolower($pathname),
+            'title' => $request->title,
+            'og_image_url' => $request->og_image_url,
+            'description' => $request->description,
+            'content' => $request->content,
+        ]);
+
+        return redirect()->route('admin.custom-pages.index');
+    }
 }
