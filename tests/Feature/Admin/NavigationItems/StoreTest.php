@@ -1,9 +1,8 @@
 <?php
 
-namespace Tests\Feature\Admin\Teams;
+namespace Tests\Feature\Admin\NavigationItems;
 
-use App\Models\ModulePermission;
-use App\Models\Team;
+use App\Models\NavigationItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -12,44 +11,61 @@ class StoreTest extends TestCase
 {
     use RefreshDatabase;
 
-    private $user;
-
     private $happyCase = [
+        'master_id' => 0,
         'name' => 'abc',
-        'type_id' => 1,
         'display_order' => 0,
     ];
+
+    private $user;
 
     protected function setUp(): void
     {
         parent::setup();
         $this->user = User::factory()->create();
-        $this->user->givePermissionTo('Edit:Permission');
+        $this->user->givePermissionTo('Edit:Navigation Item');
     }
 
     public function test_have_no_login()
     {
         $response = $this->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $this->happyCase
         );
         $response->assertUnauthorized();
     }
 
-    public function test_have_no_edit_permission()
+    public function test_missing_master_id()
     {
-        $user = User::factory()->create();
-        $user->givePermissionTo(
-            ModulePermission::inRandomOrder()
-                ->whereNot('name', 'Edit:Permission')
-                ->first()
-                ->name
+        $data = $this->happyCase;
+        unset($data['master_id']);
+        $response = $this->actingAs($this->user)->postJson(
+            route('admin.navigation-items.store'),
+            $data
         );
-        $response = $this->actingAs($user)->postJson(
-            route('admin.teams.store'),
-            $this->happyCase
+        $response->assertInvalid(['master_id' => 'The master field is required.']);
+    }
+
+    public function test_master_id_is_not_string()
+    {
+        $data = $this->happyCase;
+        $data['master_id'] = 'abc';
+        $response = $this->actingAs($this->user)->postJson(
+            route('admin.navigation-items.store'),
+            $data
         );
-        $response->assertForbidden();
+        $response->assertInvalid(['master_id' => 'The master field must be an integer.']);
+    }
+
+    public function test_master_id_is_invalid()
+    {
+        $data = $this->happyCase;
+        $data['master_id'] = -1;
+        $response = $this->actingAs($this->user)->postJson(
+            route('admin.navigation-items.store'),
+            $data
+        );
+        $response->assertInvalid(['master_id' => 'The selected master is invalid.']);
     }
 
     public function test_missing_name()
@@ -57,7 +73,7 @@ class StoreTest extends TestCase
         $data = $this->happyCase;
         unset($data['name']);
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
         $response->assertInvalid(['name' => 'The name field is required.']);
@@ -68,7 +84,7 @@ class StoreTest extends TestCase
         $data = $this->happyCase;
         $data['name'] = ['abc'];
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
         $response->assertInvalid(['name' => 'The name field must be a string.']);
@@ -77,68 +93,45 @@ class StoreTest extends TestCase
     public function test_name_too_long()
     {
         $data = $this->happyCase;
-        $data['name'] = str_repeat('a', 171);
+        $data['name'] = str_repeat('a', 256);
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
-        $response->assertInvalid(['name' => 'The name field must not be greater than 170 characters.']);
+        $response->assertInvalid(['name' => 'The name field must not be greater than 255 characters.']);
     }
 
-    public function test_name_has_colon()
+    public function test_url_is_not_string()
     {
         $data = $this->happyCase;
-        $data['name'] = 'abc:efg';
+        $data['url'] = ['abc'];
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
-        $response->assertInvalid(['name' => 'The name field cannot has ":".']);
+        $response->assertInvalid(['url' => 'The url field must be a string.']);
     }
 
-    public function test_name_is_exist_for_type()
+    public function test_url_too_long()
     {
         $data = $this->happyCase;
-        $data['name'] = Team::where('type_id', $data['type_id'])
-            ->first()->name;
+        $data['url'] = str_repeat('a', 8001);
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
-        $response->assertInvalid(['name' => 'The name of team in this type has already been taken.']);
+        $response->assertInvalid(['url' => 'The url field must not be greater than 8000 characters.']);
     }
 
-    public function test_missing_type_id()
+    public function test_url_is_no_active_url()
     {
         $data = $this->happyCase;
-        unset($data['type_id']);
+        $data['url'] = 'abc';
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
-        $response->assertInvalid(['type_id' => 'The type field is required.']);
-    }
-
-    public function test_type_id_is_not_integer()
-    {
-        $data = $this->happyCase;
-        $data['type_id'] = 'abc';
-        $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
-            $data
-        );
-        $response->assertInvalid(['type_id' => 'The type field must be an integer.']);
-    }
-
-    public function test_type_id_is_not_exists()
-    {
-        $data = $this->happyCase;
-        $data['type_id'] = '0';
-        $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
-            $data
-        );
-        $response->assertInvalid(['type_id' => 'The selected type is invalid.']);
+        $response->assertInvalid(['url' => 'The url field must be a valid URL.']);
     }
 
     public function test_missing_display_order()
@@ -146,7 +139,7 @@ class StoreTest extends TestCase
         $data = $this->happyCase;
         unset($data['display_order']);
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
         $response->assertInvalid(['display_order' => 'The display order field is required.']);
@@ -157,7 +150,7 @@ class StoreTest extends TestCase
         $data = $this->happyCase;
         $data['display_order'] = 'abc';
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
         $response->assertInvalid(['display_order' => 'The display order field must be an integer.']);
@@ -168,7 +161,7 @@ class StoreTest extends TestCase
         $data = $this->happyCase;
         $data['display_order'] = '-1';
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
         $response->assertInvalid(['display_order' => 'The display order field must be at least 0.']);
@@ -177,7 +170,7 @@ class StoreTest extends TestCase
     public function test_display_order_more_than_max_plus_one()
     {
         $data = $this->happyCase;
-        $data['display_order'] = Team::where('type_id', $data['type_id'])
+        $data['display_order'] = NavigationItem::whereNull('master_id')
             ->max('display_order');
         if ($data['display_order'] === null) {
             $data['display_order']++;
@@ -185,19 +178,29 @@ class StoreTest extends TestCase
             $data['display_order'] += 2;
         }
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $data
         );
         $response->assertInvalid(['display_order' => 'The display order field must not be greater than '.$data['display_order'] - 1 .'.']);
     }
 
-    public function test_happy_case()
+    public function test_happy_case_when_have_no_url()
     {
         $response = $this->actingAs($this->user)->postJson(
-            route('admin.teams.store'),
+            route('admin.navigation-items.store'),
             $this->happyCase
         );
-        $team = Team::latest('id')->first();
-        $response->assertRedirectToRoute('admin.teams.show', ['team' => $team]);
+        $response->assertRedirectToRoute('admin.index');
+    }
+
+    public function test_happy_case_when_has_url()
+    {
+        $data = $this->happyCase;
+        $data['url'] = 'https://google.com';
+        $response = $this->actingAs($this->user)->postJson(
+            route('admin.navigation-items.store'),
+            $this->happyCase
+        );
+        $response->assertRedirectToRoute('admin.index');
     }
 }
