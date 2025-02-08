@@ -69,6 +69,67 @@ class NavigationItemController extends Controller implements HasMiddleware
         return redirect()->route('admin.navigation-items.index');
     }
 
+    public function edit(NavigationItem $navigationItem)
+    {
+        $items = NavigationItem::orderBy('display_order')
+            ->get();
+        $displayOptions = array_fill_keys($items->pluck('id')->toArray(), []);
+        $displayOptions[0] = [];
+        foreach ($items as $item) {
+            $displayOptions[$item->master_id ?? 0][$item->display_order] = "before \"$item->name\"";
+        }
+        foreach ($displayOptions as $masterID => $array) {
+            if (count($array)) {
+                if ($masterID == $navigationItem->master_id) {
+                    $displayOptions[$masterID][max(array_keys($array))] = 'latest';
+                } else {
+                    $displayOptions[$masterID][max(array_keys($array)) + 1] = 'latest';
+                }
+            }
+            $displayOptions[$masterID][0] = 'top';
+        }
+
+        return view('admin.navigation-items.edit')
+            ->with('item', $navigationItem)
+            ->with('items', $items)
+            ->with('displayOptions', $displayOptions);
+    }
+
+    public function update(FormRequest $request, NavigationItem $navigationItem)
+    {
+        DB::beginTransaction();
+        if ($request->master_id == 0) {
+            $increment = NavigationItem::whereNull('master_id');
+        } else {
+            $increment = NavigationItem::where('master_id', $request->master_id);
+        }
+        if (! $navigationItem->master_id) {
+            $decrement = NavigationItem::whereNull('master_id');
+        } else {
+            $decrement = NavigationItem::where('master_id', $navigationItem->master_id);
+        }
+        if ($navigationItem->display_order > $request->display_order) {
+            $increment->where('display_order', '>=', $request->display_order)
+                ->increment('display_order');
+            $decrement->where('display_order', '>', $navigationItem->display_order)
+                ->decrement('display_order');
+        } elseif ($navigationItem->display_order < $request->display_order) {
+            $decrement->where('display_order', '>', $navigationItem->display_order)
+                ->decrement('display_order');
+            $increment->where('display_order', '>=', $request->display_order)
+                ->increment('display_order');
+        }
+        $navigationItem->update([
+            'master_id' => $request->master_id == 0 ? null : $request->master_id,
+            'name' => $request->name,
+            'url' => $request->url,
+            'display_order' => $request->display_order,
+        ]);
+        DB::commit();
+
+        return redirect()->route('admin.navigation-items.index');
+    }
+
     public function displayOrder(DisplayOrderRequest $request)
     {
         $IDs = [];
