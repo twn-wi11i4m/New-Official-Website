@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdmissionTest\CandidateController;
 use App\Http\Controllers\Admin\AdmissionTest\Controller as AdminAdmissionTestController;
 use App\Http\Controllers\Admin\AdmissionTest\ProctorController;
 use App\Http\Controllers\Admin\ContactController as AdminContactController;
@@ -111,10 +112,11 @@ Route::middleware('auth')->group(function () {
             Route::prefix('admission-tests/{admission_test}')->name('admission-tests.')->group(
                 function () {
                     Route::resource('proctors', ProctorController::class)
-                        ->only(['store', 'update', 'destroy'])
-                        ->whereNumber(['admission_test', 'proctor']);
+                        ->only(['store', 'update', 'destroy']);
+                    Route::resource('candidates', CandidateController::class)
+                        ->only('store');
                 }
-            );
+            )->whereNumber(['admission_test', 'proctor']);
             Route::resource('custom-pages', AdmissionCustomPageController::class)
                 ->except('show')
                 ->whereNumber('custom_page');

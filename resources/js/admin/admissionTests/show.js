@@ -327,10 +327,6 @@ function userIdValidation(input)
         bootstrapAlert('The user id field must be an integer.');
         return false;
     }
-    if(typeof users[input.value] == undefined) {
-        bootstrapAlert('The selected user id is invalid.');
-        return false;
-    }
     return true;
 }
 
@@ -344,7 +340,6 @@ if(proctor) {
     function saveProctorSuccessCallback(response) {
         bootstrapAlert(response.data.success);
         let id = urlGetProctorID(response.request.responseURL);
-        users[response.data.user_id] = response.data.name;
         let form = document.getElementById('editProctorForm'+id);
         form.hidden = true;
         form.id = 'editProctorForm'+response.data.user_id;
@@ -427,7 +422,6 @@ if(proctor) {
         document.getElementById('editProctorForm'+id).hidden = true;
         let input = document.getElementById('proctorUserIdInput'+id);
         input.value = input.dataset.value;
-        document.getElementById('proctorName'+id).innerText = users[input.value] ?? '';
         document.getElementById('showProctor'+id).hidden = false;
     }
 
@@ -486,11 +480,6 @@ if(proctor) {
 
     function setProctorEventListeners(loader) {
         let id = loader.id.replace('proctorLoader', '');
-        document.getElementById('proctorUserIdInput'+id).addEventListener(
-            'keyup', function(event) {
-                document.getElementById('proctorName'+id).innerText = users[event.target.value] ?? '';
-            }
-        )
         document.getElementById('editProctorForm'+id).addEventListener(
             'submit', saveProctor
         )
@@ -515,20 +504,8 @@ if(proctor) {
 
     const createProctorForm = document.getElementById('createProctorForm');
     const proctorUserIdInput = document.getElementById('proctorUserIdInput');
-    const proctorName = document.getElementById('proctorName');
     const addProctorButton = document.getElementById('addProctorButton');
     const addingProctorButton = document.getElementById('addingProctorButton');
-
-    let users = {};
-    for(let option of document.getElementById('users').options) {
-        users[option.value] = option.innerText;
-    }
-
-    proctorUserIdInput.addEventListener(
-        'keyup', function(event) {
-            proctorName.innerText = users[event.target.value] ?? '';
-        }
-    )
 
     function createProctorSuccessCallback(response) {
         bootstrapAlert(response.data.success);
@@ -543,7 +520,7 @@ if(proctor) {
         formElement.innerHTML = `
             <input type="hidden" name="_token" value="${token}">
             <input type="hidden" name="_method" value="put">
-            <input type="text" id="proctorUserIdInput${response.data.user_id}" class="col-md-2" name="user_id" list="users" value="${response.data.user_id}" data-value="${response.data.user_id}" required />
+            <input type="text" id="proctorUserIdInput${response.data.user_id}" class="col-md-2" name="user_id" value="${response.data.user_id}" data-value="${response.data.user_id}" required />
             <div class="col-md-4" id="proctorName${response.data.user_id}">${response.data.name}</div>
             <div class="col-md-6">
                 <button class="btn btn-primary col-md-4 submitButton" id="saveProctor${response.data.user_id}">Save</button>
@@ -574,7 +551,6 @@ if(proctor) {
         addingProctorButton.hidden = true;
         addProctorButton.hidden = false;
         proctorUserIdInput.value = '';
-        proctorName.innerText = '';
         proctorUserIdInput.disabled = false;
         enableSubmitting();
     }
@@ -610,6 +586,78 @@ if(proctor) {
             }
         }
     );
+}
+
+const candidate = document.getElementById('candidate');
+
+if(candidate) {
+    const createCandidateForm = document.getElementById('createCandidateForm');
+    if(createCandidateForm) {
+        const candidateUserIdInput = document.getElementById('candidateUserIdInput');
+        const addCandidateButton = document.getElementById('addCandidateButton');
+        const addingCandidateButton = document.getElementById('addingCandidateButton');
+        const showCurrentCandidates = document.getElementById('showCurrentCandidates');
+
+        function createCandidateSuccessCallback(response) {
+            let rowElement = document.createElement('div');
+            rowElement.id = 'showProctor'+response.data.user_id;
+            rowElement.className = 'row g-3';
+            rowElement.innerHTML = `
+                <div class="col-md-1">${response.data.user_id}</div>
+                <div class="col-md-1">${response.data.gender}</div>
+                <div class="col-md-2">${response.data.name}</div>
+                <div class="col-md-2">${response.data.passport_type}</div>
+            `;
+            if(response.data.has_same_passport) {
+                rowElement.innerHTML += `<div class="col-md-2 text-warning">${response.data.passport_number}</div>`;
+            } else {
+                rowElement.innerHTML += `<div class="col-md-2">${response.data.passport_number}</div>`;
+            }
+            rowElement.innerHTML += `
+                <a class="btn btn-primary col-md-1" id="showProctorLink${response.data.user_id}"
+                    href="${response.data.show_user_url}">Show</a>
+            `;
+            candidate.insertBefore(rowElement, createCandidateForm);
+            showCurrentCandidates.innerText = + showCurrentCandidates.innerText + 1;
+            addingCandidateButton.hidden = true;
+            addCandidateButton.hidden = false;
+            candidateUserIdInput.value = '';
+            candidateUserIdInput.disabled = false;
+            enableSubmitting();
+        }
+
+        function createCandidateFailCallback(error) {
+            if(error.status == 422) {
+                bootstrapAlert(error.response.data.errors.user_id);
+            }
+            addingCandidateButton.hidden = true;
+            addCandidateButton.hidden = false;
+            candidateUserIdInput.disabled = false;
+            enableSubmitting();
+        }
+
+        createCandidateForm.addEventListener(
+            'submit', function(event) {
+                event.preventDefault();
+                if(submitting == '') {
+                    let submitAt = Date.now();
+                    submitting = 'addCandidate'+submitAt;
+                    disableSubmitting();
+                    if(submitting == 'addCandidate'+submitAt) {
+                        if(userIdValidation(candidateUserIdInput)) {
+                            candidateUserIdInput.disabled = true;
+                            addCandidateButton.hidden = true;
+                            addingCandidateButton.hidden = false;
+                            let data = {user_id: candidateUserIdInput.value};
+                            post(event.target.action, createCandidateSuccessCallback, createCandidateFailCallback, 'post', data);
+                        } else {
+                            enableSubmitting();
+                        }
+                    }
+                }
+            }
+        );
+    }
 }
 
 submitting = '';

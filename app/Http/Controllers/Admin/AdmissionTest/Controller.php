@@ -8,7 +8,6 @@ use App\Models\Address;
 use App\Models\AdmissionTest;
 use App\Models\Area;
 use App\Models\Location;
-use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -115,7 +114,8 @@ class Controller extends BaseController implements HasMiddleware
 
         return redirect()->route(
             'admin.admission-tests.show',
-            ['admission_test' => $test]);
+            ['admission_test' => $test]
+        );
     }
 
     public function show(AdmissionTest $admissionTest)
@@ -138,18 +138,16 @@ class Controller extends BaseController implements HasMiddleware
             ->with('test', $admissionTest)
             ->with(
                 'locations', Location::distinct()
+                    ->has('admissionTests')
                     ->get('name')
                     ->pluck('name')
                     ->toArray()
             )->with('districts', $districts)
             ->with(
                 'addresses', Address::distinct()
+                    ->has('admissionTests')
                     ->get('address')
                     ->pluck('address')
-                    ->toArray()
-            )->with(
-                'users', User::get(['id', 'family_name', 'middle_name', 'given_name'])
-                    ->pluck('name', 'id')
                     ->toArray()
             );
     }
@@ -232,8 +230,8 @@ class Controller extends BaseController implements HasMiddleware
 
         return [
             'success' => 'The admission test update success!',
-            'testing_at' => $admissionTest->testing_at,
-            'expect_end_at' => $admissionTest->expect_end_at,
+            'testing_at' => $admissionTest->testing_at->format('Y-m-d H:i'),
+            'expect_end_at' => $admissionTest->expect_end_at->format('Y-m-d H:i'),
             'location' => $admissionTest->location->name,
             'district_id' => $admissionTest->address->district_id,
             'address' => $admissionTest->address->address,

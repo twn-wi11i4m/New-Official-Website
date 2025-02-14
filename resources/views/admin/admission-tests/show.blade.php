@@ -96,7 +96,7 @@
                     </tr>
                     <tr>
                         <th>Current Candidates</th>
-                        <td>0</td>
+                        <td id="showCurrentCandidates">{{ $test->candidates->count() }}</td>
                     </tr>
                     <tr>
                         <th>Is Public</th>
@@ -116,9 +116,9 @@
                 <article id="proctor">
                     <h3 class="fw-bold mb-2">Proctors</h3>
                     <div class="row g-3">
-                        <div class="col-md-2">User ID</div>
+                        <div class="col-md-1">User ID</div>
                         <div class="col-md-4">Name</div>
-                        <div class="col-md-6">Control</div>
+                        <div class="col-md-3">Control</div>
                     </div>
                     @foreach ($test->proctors as $proctor)
                         <div class="row g-3" id="showProctor{{ $proctor->id }}">
@@ -126,46 +126,89 @@
                                 @csrf
                                 @method('DELETE')
                             </form>
-                            <div class="col-md-2" id="showProctorId{{ $proctor->id }}">{{ $proctor->id }}</div>
-                            <div class="col-md-4" id="showProctorName{{ $proctor->id }}">{{ $proctor->name }}</div>
-                            <div class="col-md-6">
-                                <a class="btn btn-primary col-md-4" id="showProctorLink{{ $proctor->id }}"
-                                    href="{{ route('admin.users.show', ['user' => $proctor]) }}">Show</a>
-                                <span class="spinner-border spinner-border-sm proctorLoader" id="proctorLoader{{ $proctor->id }}" role="status" aria-hidden="true"></span>
-                                <button class="btn btn-primary col-md-4" id="editProctor{{ $proctor->id }}" hidden>Edit</button>
-                                <button class="btn btn-danger col-md-4" id="deleteProctor{{ $proctor->id }}" form="deleteProctorForm{{ $proctor->id }}" hidden>Delete</button>
-                            </div>
+                            <div class="col-md-1" id="showProctorId{{ $proctor->id }}">{{ $proctor->id }}</div>
+                            <div class="col-md-2" id="showProctorName{{ $proctor->id }}">{{ $proctor->name }}</div>
+                            <a class="btn btn-primary col-md-1" id="showProctorLink{{ $proctor->id }}"
+                                href="{{ route('admin.users.show', ['user' => $proctor]) }}">Show</a>
+                            <span class="spinner-border spinner-border-sm proctorLoader" id="proctorLoader{{ $proctor->id }}" role="status" aria-hidden="true"></span>
+                            <button class="btn btn-primary col-md-1" id="editProctor{{ $proctor->id }}" hidden>Edit</button>
+                            <button class="btn btn-danger col-md-1" id="deleteProctor{{ $proctor->id }}" form="deleteProctorForm{{ $proctor->id }}" hidden>Delete</button>
                         </div>
                         <form class="row g-3" id="editProctorForm{{ $proctor->id }}" method="POST" novalidate hidden
                             action="{{ route('admin.admission-tests.proctors.update', ['admission_test' => $test, 'proctor' => $proctor]) }}">
                             @csrf
                             @method('PUT')
-                            <input type="text" id="proctorUserIdInput{{ $proctor->id }}" class="col-md-2" name="user_id" list="users" value="{{ $proctor->id }}" data-value="{{ $proctor->id }}" required />
-                            <div class="col-md-4" id="proctorName{{ $proctor->id }}">{{ $proctor->name }}</div>
-                            <div class="col-md-6">
-                                <button class="btn btn-primary col-md-4 submitButton" id="saveProctor{{ $proctor->id }}">Save</button>
-                                <button class="btn btn-primary col-md-4" id="savingProctor{{ $proctor->id }}" disabled hidden>Save</button>
-                                <button class="btn btn-danger col-md-4" id="cancelEditProctor{{ $proctor->id }}" onclick="return false">Cancel</button>
-                            </div>
+                            <input type="text" id="proctorUserIdInput{{ $proctor->id }}" class="col-md-2" name="user_id" value="{{ $proctor->id }}" data-value="{{ $proctor->id }}" required />
+                            <div class="col-md-2" id="proctorName{{ $proctor->id }}">{{ $proctor->name }}</div>
+                            <button class="btn btn-primary col-md-1 submitButton" id="saveProctor{{ $proctor->id }}">Save</button>
+                            <button class="btn btn-primary col-md-1" id="savingProctor{{ $proctor->id }}" disabled hidden>Save</button>
+                            <button class="btn btn-danger col-md-1" id="cancelEditProctor{{ $proctor->id }}" onclick="return false">Cancel</button>
                         </form>
                     @endforeach
                     <form class="row g-3" id="createProctorForm" method="POST" novalidate
                         action="{{ route('admin.admission-tests.proctors.store', ['admission_test' => $test]) }}">
                         @csrf
-                        <input type="text" id="proctorUserIdInput" class="col-md-2" name="user_id" list="users" required />
-                        <div class="col-md-4" id="proctorName"></div>
-                        <div class="col-md-6">
-                            <button class="btn btn-success form-control submitButton" id="addProctorButton">Add</button>
-                            <button class="btn btn-success form-control" id="addingProctorButton" hidden disabled>
-                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                Adding
-                            </button>
-                        </div>
+                        <input type="text" id="proctorUserIdInput" class="col-md-1" name="user_id" required />
+                        <div class="col-md-4"></div>
+                        <button class="btn btn-success col-md-3 submitButton" id="addProctorButton">Add</button>
+                        <button class="btn btn-success col-md-3" id="addingProctorButton" hidden disabled>
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            Adding
+                        </button>
                     </form>
                 </article>
             @endcan
-            <x-datalist :id="'users'" :values="$users" isStringKey="true"></x-datalist>
         @endcan
+        @if(
+            $test->inTestingTimeRange() ||
+            auth()->user()->can('View:User')
+        )
+            <article id="candidate">
+                <h3 class="fw-bold mb-2">Candidates</h3>
+                <div class="row g-3">
+                    <div class="col-md-1">User ID</div>
+                    <div class="col-md-1">Gender</div>
+                    <div class="col-md-2">Name</div>
+                    <div class="col-md-2">Passport Type</div>
+                    <div class="col-md-2">Passport Number</div>
+                    <div class="col-md-3">Control</div>
+                </div>
+                @foreach ($test->candidates as $candidate)
+                    <div class="row g-3">
+                        <div class="col-md-1">{{ $candidate->id }}</div>
+                        <div class="col-md-1">{{ $candidate->gender->name }}</div>
+                        <div class="col-md-2">{{ $candidate->name }}</div>
+                        <div class="col-md-2">{{ $candidate->passportType->name }}</div>
+                        <div @class([
+                            'col-md-2',
+                            'text-warning' => $candidate->hasSamePassportTested(),
+                            'text-danger' => $candidate->hasSamePassportTestedTwoTimes() ||
+                                $candidate->hasSamePassportAlreadyQualificationOfMembership() ||
+                                $candidate->hasSamePassportTestedWithinDateRange(
+                                    $admissionTest->testing_at->subMonths(6), now()
+                                ),
+                        ])>{{ $candidate->passport_number }}</div>
+                        @can('Edit:Admission Test')
+                            <a class="btn btn-primary col-md-1" id="showProctorLink{{ $proctor->id }}"
+                                href="{{ route('admin.users.show', ['user' => $proctor]) }}">Show</a>
+                        @endcan
+                    </div>
+                @endforeach
+                @can('Edit:Admission Test')
+                    <form class="row g-3" id="createCandidateForm" method="POST" novalidate
+                        action="{{ route('admin.admission-tests.candidates.store', ['admission_test' => $test]) }}">
+                        @csrf
+                        <input type="text" id="candidateUserIdInput" class="col-md-1" name="user_id" required />
+                        <div class="col-md-7"></div>
+                        <button class="btn btn-success col-md-3 submitButton" id="addCandidateButton">Add</button>
+                        <button class="btn btn-success col-md-3" id="addingCandidateButton" hidden disabled>
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            Adding
+                        </button>
+                    </form>
+                @endcan
+            </article>
+        @endif
     </section>
 @endsection
 
