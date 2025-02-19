@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin\AdmissionTest;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\AdmissionTest\CandidateRequest;
+use App\Http\Requests\Admin\AdmissionTest\Candidate\StoreRequest;
+use App\Http\Requests\Admin\AdmissionTest\Candidate\UpdateRequest;
 use App\Models\AdmissionTest;
 use App\Models\AdmissionTestHasCandidate;
+use App\Models\Gender;
+use App\Models\PassportType;
 use App\Models\User;
 use App\Notifications\AssignAdmissionTest;
 use Closure;
@@ -67,11 +70,11 @@ class CandidateController extends Controller implements HasMiddleware
                     }
                     abort(403);
                 }
-            ))->only('show'),
+            ))->only(['show', 'edit', 'update']),
         ];
     }
 
-    public function store(CandidateRequest $request, AdmissionTest $admissionTest)
+    public function store(StoreRequest $request, AdmissionTest $admissionTest)
     {
         DB::beginTransaction();
         AdmissionTestHasCandidate::where('user_id', $request->user->id)
@@ -104,5 +107,44 @@ class CandidateController extends Controller implements HasMiddleware
         return view('admin.admission-tests.candidates.show')
             ->with('test', $admissionTest)
             ->with('user', $candidate);
+    }
+
+    public function edit(AdmissionTest $admissionTest, User $candidate)
+    {
+        return view('admin.admission-tests.candidates.edit')
+            ->with('test', $admissionTest)
+            ->with('user', $candidate)
+            ->with(
+                'genders', Gender::all()
+                    ->pluck('name', 'id')
+                    ->toArray()
+            )->with(
+                'passportTypes', PassportType::all()
+                    ->pluck('name', 'id')
+                    ->toArray()
+            );
+    }
+
+    public function update(UpdateRequest $request, AdmissionTest $admissionTest, User $candidate)
+    {
+        DB::beginTransaction();
+        $gender = $candidate->gender->updateName($request->gender);
+        $candidate->update([
+            'family_name' => $request->family_name,
+            'middle_name' => $request->middle_name,
+            'given_name' => $request->given_name,
+            'gender_id' => $gender->id,
+            'passport_type_id' => $request->passport_type_id,
+            'passport_number' => $request->passport_number,
+        ]);
+        DB::commit();
+
+        return redirect()->route(
+            'admin.admission-tests.candidates.show',
+            [
+                'admission_test' => $admissionTest,
+                'candidate' => $candidate,
+            ]
+        );
     }
 }
