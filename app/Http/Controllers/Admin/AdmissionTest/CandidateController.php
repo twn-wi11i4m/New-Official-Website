@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\AdmissionTest;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdmissionTest\Candidate\StoreRequest;
 use App\Http\Requests\Admin\AdmissionTest\Candidate\UpdateRequest;
+use App\Http\Requests\StatusRequest;
 use App\Models\AdmissionTest;
 use App\Models\AdmissionTestHasCandidate;
 use App\Models\Gender;
@@ -31,8 +32,8 @@ class CandidateController extends Controller implements HasMiddleware
                         abort(403);
                     }
                     $test = $request->route('admission_test');
-                    if ($test->expect_end_at->addHour() < now()) {
-                        abort(410, 'Can not change candidate after than expect end time one hour.');
+                    if ($test->testing_at <= now()) {
+                        abort(410, 'Can not add candidate after than testing time.');
                     }
                     if ($test->candidates()->count() >= $test->maximum_candidates) {
                         return response(['errors' => ['user_id' => 'The admission test is fulled.']], 422);
@@ -70,7 +71,25 @@ class CandidateController extends Controller implements HasMiddleware
                     }
                     abort(403);
                 }
-            ))->only(['show', 'edit', 'update']),
+            ))->except('store'),
+            (new Middleware(
+                function (Request $request, Closure $next) {
+                    $user = $request->route('candidate');
+                    if ($user->hasSamePassportAlreadyQualificationOfMembership()) {
+                        abort(409, 'The passport of user has already been qualification for membership.');
+                    } elseif (
+                        $user->hasSamePassportTestedWithinDateRange(
+                            $request->route('admission_test')->testing_at->subMonths(6), now()
+                        )
+                    ) {
+                        abort(409, 'The passport of user has admission test record within 6 months(count from testing at of this test sub 6 months to now).');
+                    } elseif ($user->hasSamePassportTestedTwoTimes()) {
+                        abort(409, 'The passport of user tested two times admission test.');
+                    }
+
+                    return $next($request);
+                }
+            ))->only('present'),
         ];
     }
 
@@ -90,7 +109,6 @@ class CandidateController extends Controller implements HasMiddleware
         return [
             'success' => 'The candidate create success',
             'user_id' => $request->user->id,
-            'gender' => $request->user->gender->name,
             'name' => $request->user->name,
             'passport_type' => $request->user->passportType->name,
             'passport_number' => $request->user->passport_number,
@@ -99,6 +117,14 @@ class CandidateController extends Controller implements HasMiddleware
                 'admin.users.show',
                 ['user' => $request->user]
             ),
+            'in_testing_time_range' => $admissionTest->inTestingTimeRange(),
+            'present_url' => route(
+                'admin.admission-tests.candidates.present',
+                [
+                    'admission_test' => $admissionTest,
+                    'candidate' => $request->user,
+                ]
+            ),
         ];
     }
 
@@ -106,7 +132,13 @@ class CandidateController extends Controller implements HasMiddleware
     {
         return view('admin.admission-tests.candidates.show')
             ->with('test', $admissionTest)
-            ->with('user', $candidate);
+            ->with('user', $candidate)
+            ->with(
+                'isPresent', AdmissionTestHasCandidate::where('test_id', $admissionTest->id)
+                    ->where('user_id', $candidate->id)
+                    ->first('is_present')
+                    ->is_present
+            );
     }
 
     public function edit(AdmissionTest $admissionTest, User $candidate)
@@ -146,5 +178,17 @@ class CandidateController extends Controller implements HasMiddleware
                 'candidate' => $candidate,
             ]
         );
+    }
+
+    public function present(StatusRequest $request, AdmissionTest $admissionTest, User $candidate)
+    {
+        AdmissionTestHasCandidate::where('test_id', $admissionTest->id)
+            ->where('user_id', $candidate->id)
+            ->update(['is_present' => $request->status]);
+
+        return [
+            'success' => "The candidate of $candidate->name changed to be ".($request->status ? 'present.' : 'absent.'),
+            'status' => $request->status,
+        ];
     }
 }

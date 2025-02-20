@@ -167,16 +167,19 @@
                 <h3 class="fw-bold mb-2">Candidates</h3>
                 <div class="row g-3">
                     <div class="col-md-1">User ID</div>
-                    <div class="col-md-1">Gender</div>
                     <div class="col-md-2">Name</div>
                     <div class="col-md-2">Passport Type</div>
                     <div class="col-md-2">Passport Number</div>
-                    <div class="col-md-3">Control</div>
+                    <div class="col-md-4">Control</div>
                 </div>
                 @foreach ($test->candidates as $candidate)
                     <div class="row g-3">
+                        <form id="presentForm{{ $candidate->id }}" hidden method="POST"
+                            action="{{ route('admin.admission-tests.candidates.present', ['admission_test' => $test, 'candidate'=> $candidate]) }}">
+                            @csrf
+                            @method("put")
+                        </form>
                         <div class="col-md-1">{{ $candidate->id }}</div>
-                        <div class="col-md-1">{{ $candidate->gender->name }}</div>
                         <div class="col-md-2">{{ $candidate->name }}</div>
                         <div class="col-md-2">{{ $candidate->passportType->name }}</div>
                         <div @class([
@@ -189,22 +192,25 @@
                                 ),
                         ])>{{ $candidate->passport_number }}</div>
                         @can('View:User')
-                            <a class="btn btn-primary col-md-1" id="showCandidateLink{{ $candidate->id }}"
+                            <a class="btn btn-primary col-md-1 showCandidateLink"
                                 href="{{ route('admin.users.show', ['user' => $candidate]) }}">Show</a>
+                            <span class="spinner-border spinner-border-sm candidateLoader" id="candidateLoader{{ $candidate->id }}" role="status" aria-hidden="true"></span>
+                            <button name="status" id="presentButton{{ $candidate->id }}" form="presentForm{{ $candidate->id }}" value="{{ !$candidate->pivot->is_present }}" @disabled(! $test->inTestingTimeRange()) @class([
+                                'btn',
+                                'btn-success' => $candidate->pivot->is_present,
+                                'btn-danger' => !$candidate->pivot->is_present,
+                                'col-md-1',
+                                'submitButton',
+                            ]) hidden>{{ $candidate->pivot->is_present ? 'Present' : 'Absent' }}</button>
+                            <button class="btn btn-primary col-md-1 disableDShowCandidateLink" hidden disabled>Show</button>
                         @else
-                            <a class="btn btn-primary col-md-1" id="showCandidateLink{{ $candidate->id }}"
+                            <a class="btn btn-primary col-md-1 showCandidateLink"
                                 href="{{ route('admin.admission-tests.candidates.show', ['admission_test' => $test, 'candidate' => $candidate]) }}" target="_blank">Show</a>
                         @endcan
-                        @if(
-                            !auth()->user()->can('View:User') ||
-                            !auth()->user()->can('Edit:Admission Test')
-                        )
-                            <a class="btn btn-primary col-md-1" id="editCandidateLink{{ $candidate->id }}"
-                                href="{{ route('admin.admission-tests.candidates.edit', ['admission_test' => $test, 'candidate' => $candidate]) }}" target="_blank">Edit</a>
-                        @endif
                     </div>
                 @endforeach
                 @if(
+                    $test->testing_at >= now() &&
                     auth()->user()->can('View:User') &&
                     auth()->user()->can('Edit:Admission Test')
                 )
@@ -212,9 +218,9 @@
                         action="{{ route('admin.admission-tests.candidates.store', ['admission_test' => $test]) }}">
                         @csrf
                         <input type="text" id="candidateUserIdInput" class="col-md-1" name="user_id" required />
-                        <div class="col-md-7"></div>
-                        <button class="btn btn-success col-md-3 submitButton" id="addCandidateButton">Add</button>
-                        <button class="btn btn-success col-md-3" id="addingCandidateButton" hidden disabled>
+                        <div class="col-md-6"></div>
+                        <button class="btn btn-success col-md-5 submitButton" id="addCandidateButton">Add</button>
+                        <button class="btn btn-success col-md-5" id="addingCandidateButton" hidden disabled>
                             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                             Adding
                         </button>
