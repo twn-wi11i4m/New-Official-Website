@@ -12,6 +12,8 @@ use App\Models\Gender;
 use App\Models\PassportType;
 use App\Models\User;
 use App\Notifications\AssignAdmissionTest;
+use App\Notifications\FailAdmissionTest;
+use App\Notifications\PassAdmissionTest;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -31,6 +33,12 @@ class CandidateController extends Controller implements HasMiddleware
                     ) {
                         abort(403);
                     }
+
+                    return $next($request);
+                }
+            ))->only(['store', 'result']),
+            (new Middleware(
+                function (Request $request, Closure $next) {
                     $test = $request->route('admission_test');
                     if ($test->testing_at <= now()) {
                         abort(410, 'Can not add candidate after than testing time.');
@@ -44,52 +52,73 @@ class CandidateController extends Controller implements HasMiddleware
             ))->only('store'),
             (new Middleware(
                 function (Request $request, Closure $next) {
-                    if (
-                        ! AdmissionTestHasCandidate::where('test_id', $request->route('admission_test')->id)
-                            ->where('user_id', $request->route('candidate')->id)
-                            ->exists()
-                    ) {
+                    $pivot = AdmissionTestHasCandidate::where('test_id', $request->route('admission_test')->id)
+                        ->where('user_id', $request->route('candidate')->id)
+                        ->first();
+                    if (! $pivot) {
                         abort(404);
                     }
+                    $request->merge(['pivot' => $pivot]);
+
+                    return $next($request);
+                }
+            ))->except('store'),
+            (new Middleware(
+                function (Request $request, Closure $next) {
                     $test = $request->route('admission_test');
+                    if (
+                        ! (
+                            $request->user()->can('View:User') &&
+                            $request->user()->can('Edit:Admission Test')
+                        ) && ! (
+                            $test->inTestingTimeRange() &&
+                            in_array($request->user()->id, $test->proctors->pluck('id')->toArray())
+                        )
+                    ) {
+                        abort(403);
+                    }
                     if ($test->testing_at > now()->addHours(2)) {
                         abort(409, 'Could not access before than testing time 2 hours.');
                     }
                     if ($test->expect_end_at < now()->subHour()) {
                         abort(410, 'Could not access after than expect end time 1 hour.');
                     }
-                    if (
-                        (
-                            $request->user()->can('View:User') &&
-                            $request->user()->can('Edit:Admission Test')
-                        ) || (
-                            $test->inTestingTimeRange() &&
-                            in_array($request->user()->id, $test->proctors->pluck('id')->toArray())
-                        )
-                    ) {
-                        return $next($request);
-                    }
-                    abort(403);
+
+                    return $next($request);
                 }
-            ))->except('store'),
+            ))->except(['store', 'result']),
             (new Middleware(
                 function (Request $request, Closure $next) {
                     $user = $request->route('candidate');
-                    if ($user->hasSamePassportAlreadyQualificationOfMembership()) {
+                    $test = $request->route('admission_test');
+                    if (in_array($request->pivot->is_pass, ['0', '1'])) {
+                        abort(410, 'Cannot change exists result candidate present status.');
+                    } elseif ($user->hasSamePassportAlreadyQualificationOfMembership()) {
                         abort(409, 'The passport of user has already been qualification for membership.');
                     } elseif (
                         $user->hasSamePassportTestedWithinDateRange(
-                            $request->route('admission_test')->testing_at->subMonths(6), now()
+                            $test->testing_at->subMonths(6), now(), $test
                         )
                     ) {
                         abort(409, 'The passport of user has admission test record within 6 months(count from testing at of this test sub 6 months to now).');
-                    } elseif ($user->hasSamePassportTestedTwoTimes()) {
+                    } elseif ($user->hasSamePassportTestedTwoTimes($test)) {
                         abort(409, 'The passport of user tested two times admission test.');
                     }
 
                     return $next($request);
                 }
             ))->only('present'),
+            (new Middleware(
+                function (Request $request, Closure $next) {
+                    if ($request->route('admission_test')->expect_end_at > now()) {
+                        abort(409, 'Cannot add result before expect end time.');
+                    }
+                    if ($request->pivot->is_present) {
+                        return $next($request);
+                    }
+                    abort(409, 'Cannot add result to absent candidate.');
+                }
+            ))->only('result'),
         ];
     }
 
@@ -125,20 +154,22 @@ class CandidateController extends Controller implements HasMiddleware
                     'candidate' => $request->user,
                 ]
             ),
+            'result_url' => route(
+                'admin.admission-tests.candidates.result',
+                [
+                    'admission_test' => $admissionTest,
+                    'candidate' => $request->user,
+                ]
+            ),
         ];
     }
 
-    public function show(AdmissionTest $admissionTest, User $candidate)
+    public function show(Request $request, AdmissionTest $admissionTest, User $candidate)
     {
         return view('admin.admission-tests.candidates.show')
             ->with('test', $admissionTest)
             ->with('user', $candidate)
-            ->with(
-                'isPresent', AdmissionTestHasCandidate::where('test_id', $admissionTest->id)
-                    ->where('user_id', $candidate->id)
-                    ->first('is_present')
-                    ->is_present
-            );
+            ->with('isPresent', $request->pivot->is_present);
     }
 
     public function edit(AdmissionTest $admissionTest, User $candidate)
@@ -182,13 +213,28 @@ class CandidateController extends Controller implements HasMiddleware
 
     public function present(StatusRequest $request, AdmissionTest $admissionTest, User $candidate)
     {
-        AdmissionTestHasCandidate::where('test_id', $admissionTest->id)
-            ->where('user_id', $candidate->id)
-            ->update(['is_present' => $request->status]);
+        $request->pivot->update(['is_present' => $request->status]);
 
         return [
-            'success' => "The candidate of $candidate->name changed to be ".($request->status ? 'present.' : 'absent.'),
-            'status' => $request->status,
+            'success' => "The candidate of $candidate->name changed to be ".($request->pivot->is_present ? 'present.' : 'absent.'),
+            'status' => $request->pivot->is_present,
+        ];
+    }
+
+    public function result(StatusRequest $request, AdmissionTest $admissionTest, User $candidate)
+    {
+        DB::beginTransaction();
+        $request->pivot->update(['is_pass' => $request->status]);
+        if ($request->pivot->is_pass) {
+            $candidate->notify(new PassAdmissionTest);
+        } else {
+            $candidate->notify(new FailAdmissionTest($admissionTest));
+        }
+        DB::commit();
+
+        return [
+            'success' => "The candidate of $candidate->name changed to be ".($request->pivot->is_pass ? 'pass.' : 'fail.'),
+            'status' => $request->pivot->is_pass,
         ];
     }
 }

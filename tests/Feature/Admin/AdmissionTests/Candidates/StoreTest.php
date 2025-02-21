@@ -80,7 +80,7 @@ class StoreTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_not_exist_admission_test()
+    public function test_admission_test_is_not_exist()
     {
         $response = $this->actingAs($this->user)->postJson(
             route(
@@ -288,6 +288,13 @@ class StoreTest extends TestCase
                     'candidate' => $this->user,
                 ]
             ),
+            'result_url' => route(
+                'admin.admission-tests.candidates.result',
+                [
+                    'admission_test' => $this->test,
+                    'candidate' => $this->user,
+                ]
+            ),
         ]);
         $this->user->notify(new AssignAdmissionTest($this->test));
         Notification::assertSentTo(
@@ -336,6 +343,13 @@ class StoreTest extends TestCase
                     'candidate' => $this->user,
                 ]
             ),
+            'result_url' => route(
+                'admin.admission-tests.candidates.result',
+                [
+                    'admission_test' => $this->test,
+                    'candidate' => $this->user,
+                ]
+            ),
         ]);
         $this->assertEquals(0, $oldTest->candidates()->count());
         Notification::assertSentTo(
@@ -373,6 +387,13 @@ class StoreTest extends TestCase
             'in_testing_time_range' => $this->test->inTestingTimeRange(),
             'present_url' => route(
                 'admin.admission-tests.candidates.present',
+                [
+                    'admission_test' => $this->test,
+                    'candidate' => $this->user,
+                ]
+            ),
+            'result_url' => route(
+                'admin.admission-tests.candidates.result',
                 [
                     'admission_test' => $this->test,
                     'candidate' => $this->user,
@@ -426,6 +447,13 @@ class StoreTest extends TestCase
             'in_testing_time_range' => $this->test->inTestingTimeRange(),
             'present_url' => route(
                 'admin.admission-tests.candidates.present',
+                [
+                    'admission_test' => $this->test,
+                    'candidate' => $this->user,
+                ]
+            ),
+            'result_url' => route(
+                'admin.admission-tests.candidates.result',
                 [
                     'admission_test' => $this->test,
                     'candidate' => $this->user,
