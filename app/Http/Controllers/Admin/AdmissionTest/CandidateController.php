@@ -11,11 +11,11 @@ use App\Models\AdmissionTestHasCandidate;
 use App\Models\Gender;
 use App\Models\PassportType;
 use App\Models\User;
-use App\Notifications\AssignAdmissionTest;
-use App\Notifications\CanceledAdmissionTestAppointment;
-use App\Notifications\FailAdmissionTest;
-use App\Notifications\PassAdmissionTest;
-use App\Notifications\RemovedAdmissionTestRecord;
+use App\Notifications\AdmissionTest\Admin\AssignAdmissionTest;
+use App\Notifications\AdmissionTest\Admin\CanceledAdmissionTestAppointment;
+use App\Notifications\AdmissionTest\Admin\FailAdmissionTest;
+use App\Notifications\AdmissionTest\Admin\PassAdmissionTest;
+use App\Notifications\AdmissionTest\Admin\RemovedAdmissionTestRecord;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -222,12 +222,14 @@ class CandidateController extends Controller implements HasMiddleware
 
     public function destroy(Request $request, AdmissionTest $admissionTest, User $candidate)
     {
+        DB::beginTransaction();
         $admissionTest->candidates()->detach($candidate->id);
         if (in_array($request->pivot->is_pass, ['0', '1'])) {
-            $candidate->notify(new RemovedAdmissionTestRecord($admissionTest));
+            $candidate->notify(new RemovedAdmissionTestRecord($admissionTest, $request->pivot));
         } else {
-            $candidate->notify(new CanceledAdmissionTestAppointment($admissionTest, $request->pivot));
+            $candidate->notify(new CanceledAdmissionTestAppointment($admissionTest));
         }
+        DB::commit();
 
         return ['success' => 'The candidate delete success!'];
     }

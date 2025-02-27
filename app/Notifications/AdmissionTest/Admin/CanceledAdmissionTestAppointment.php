@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Notifications;
+namespace App\Notifications\AdmissionTest\Admin;
 
 use App\Channels\Whatsapp\Message as Channel;
 use App\Channels\Whatsapp\Messages\Message;
@@ -8,7 +8,7 @@ use App\Models\AdmissionTest;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class RemovedAdmissionTestRecord extends Notification
+class CanceledAdmissionTestAppointment extends Notification
 {
     /**
      * Create a new notification instance.
