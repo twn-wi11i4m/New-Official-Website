@@ -16,6 +16,7 @@ use App\Notifications\AdmissionTest\Admin\CanceledAdmissionTestAppointment;
 use App\Notifications\AdmissionTest\Admin\FailAdmissionTest;
 use App\Notifications\AdmissionTest\Admin\PassAdmissionTest;
 use App\Notifications\AdmissionTest\Admin\RemovedAdmissionTestRecord;
+use App\Notifications\AdmissionTest\Admin\RescheduleAdmissionTest;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -96,15 +97,15 @@ class CandidateController extends Controller implements HasMiddleware
                     if (in_array($request->pivot->is_pass, ['0', '1'])) {
                         abort(410, 'Cannot change exists result candidate present status.');
                     } elseif ($user->hasSamePassportAlreadyQualificationOfMembership()) {
-                        abort(409, 'The passport of user has already been qualification for membership.');
+                        abort(409, 'The candidate has already been qualification for membership.');
+                    } elseif ($user->hasOtherSamePassportUserTested($test)) {
+                        abort(409, 'The candidate has other same passport user account tested.');
                     } elseif (
-                        $user->hasSamePassportTestedWithinDateRange(
+                        $user->hasTestedWithinDateRange(
                             $test->testing_at->subMonths(6), now(), $test
                         )
                     ) {
-                        abort(409, 'The passport of user has admission test record within 6 months(count from testing at of this test sub 6 months to now).');
-                    } elseif ($user->hasSamePassportTestedTwoTimes($test)) {
-                        abort(409, 'The passport of user tested two times admission test.');
+                        abort(409, 'The candidate has admission test record within 6 months(count from testing at of this test sub 6 months to now).');
                     }
 
                     return $next($request);
@@ -127,14 +128,17 @@ class CandidateController extends Controller implements HasMiddleware
     public function store(StoreRequest $request, AdmissionTest $admissionTest)
     {
         DB::beginTransaction();
-        AdmissionTestHasCandidate::where('user_id', $request->user->id)
-            ->whereHas(
-                'test', function ($query) use ($request) {
-                    $query->where('testing_at', '>', $request->now);
-                }
-            )->delete();
         $admissionTest->candidates()->attach($request->user->id);
-        $request->user->notify(new AssignAdmissionTest($admissionTest));
+        switch ($request->function) {
+            case 'schedule':
+                $request->user->notify(new AssignAdmissionTest($admissionTest));
+                break;
+            case 'reschedule':
+                $oldTest = clone $request->futureTest;
+                $request->futureTest->delete();
+                $request->user->notify(new RescheduleAdmissionTest($oldTest, $admissionTest));
+                break;
+        }
         DB::commit();
 
         return [

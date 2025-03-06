@@ -12,13 +12,14 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\HtmlString;
 
-class AssignAdmissionTest extends Notification
+class RescheduleAdmissionTest extends Notification
 {
     /**
      * Create a new notification instance.
      */
     public function __construct(
-        private $test
+        private $oldTest,
+        private $newTest
     ) {}
 
     private function qrCode($user)
@@ -41,7 +42,7 @@ class AssignAdmissionTest extends Notification
         $out = (new QRCode($options))->render(
             route(
                 'admin.admission-tests.candidates.show', [
-                    'admission_test' => $this->test,
+                    'admission_test' => $this->newTest,
                     'candidate' => $user,
                 ]
             )
@@ -74,12 +75,21 @@ class AssignAdmissionTest extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('We are assigned admission test to you.')
-            ->line('Date: '.$this->test->testing_at->format('Y-m-d'))
-            ->line('Time: '.$this->test->testing_at->format('H:i').' - '.$this->test->expect_end_at->format('H:i'))
-            ->line('Location: '.$this->test->location->name)
-            ->line("Address: {$this->test->address->address}, {$this->test->address->district->name}, {$this->test->address->district->area->name}")
-            ->line('Ticket:')
+            ->subject('We are reschedule your admission test appointment.')
+            ->line('')
+            ->line('Form')
+            ->line('Date: '.$this->oldTest->testing_at->format('Y-m-d'))
+            ->line('Time: '.$this->oldTest->testing_at->format('H:i').' - '.$this->oldTest->expect_end_at->format('H:i'))
+            ->line('Location: '.$this->oldTest->location->name)
+            ->line("Address: {$this->oldTest->address->address}, {$this->oldTest->address->district->name}, {$this->oldTest->address->district->area->name}")
+            ->line('')
+            ->line('To')
+            ->line('Date: '.$this->newTest->testing_at->format('Y-m-d'))
+            ->line('Time: '.$this->newTest->testing_at->format('H:i').' - '.$this->newTest->expect_end_at->format('H:i'))
+            ->line('Location: '.$this->newTest->location->name)
+            ->line("Address: {$this->newTest->address->address}, {$this->newTest->address->district->name}, {$this->newTest->address->district->area->name}")
+            ->line('')
+            ->line('New Ticket:')
             ->line(new HtmlString('<img src="'.$this->qrCode($notifiable).'">'))
             ->line('')
             ->line('Remember:')
@@ -95,11 +105,19 @@ class AssignAdmissionTest extends Notification
             ->content(
                 implode(
                     "\n", [
-                        'We are assigned admission test to you.',
-                        'Date: '.$this->test->testing_at->format('Y-m-d'),
-                        'Time: '.$this->test->testing_at->format('H:i').' - '.$this->test->expect_end_at->format('H:i'),
-                        'Location: '.$this->test->location->name,
-                        "Address: {$this->test->address->address}, {$this->test->address->district->name}, {$this->test->address->district->area->name}",
+                        'We are reschedule your admission test appointment.',
+                        '',
+                        'Form',
+                        'Date: '.$this->oldTest->testing_at->format('Y-m-d'),
+                        'Time: '.$this->oldTest->testing_at->format('H:i').' - '.$this->oldTest->expect_end_at->format('H:i'),
+                        'Location: '.$this->oldTest->location->name,
+                        "Address: {$this->oldTest->address->address}, {$this->oldTest->address->district->name}, {$this->oldTest->address->district->area->name}",
+                        '',
+                        'To',
+                        'Date: '.$this->newTest->testing_at->format('Y-m-d'),
+                        'Time: '.$this->newTest->testing_at->format('H:i').' - '.$this->newTest->expect_end_at->format('H:i'),
+                        'Location: '.$this->newTest->location->name,
+                        "Address: {$this->newTest->address->address}, {$this->newTest->address->district->name}, {$this->newTest->address->district->area->name}",
                         '',
                         'Remember:',
                         '1. Please bring your own pencil.',
@@ -112,7 +130,7 @@ class AssignAdmissionTest extends Notification
                 'https://quickchart.io/qr?caption=Ticket&text='.urlencode(
                     route(
                         'admin.admission-tests.candidates.show', [
-                            'admission_test' => $this->test,
+                            'admission_test' => $this->newTest,
                             'candidate' => $notifiable,
                         ]
                     )

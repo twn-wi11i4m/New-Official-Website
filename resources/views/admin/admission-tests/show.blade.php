@@ -195,10 +195,10 @@
                         <div @class([
                             'col-md-2',
                             'text-warning' => $candidate->hasOtherUserSamePassportJoinedFutureTest(),
-                            'text-danger' => $candidate->hasSamePassportTestedTwoTimes() ||
+                            'text-danger' => $candidate->hasOtherSamePassportUserTested() ||
                                 $candidate->hasSamePassportAlreadyQualificationOfMembership() ||
-                                $candidate->hasSamePassportTestedWithinDateRange(
-                                    $test->testing_at->subMonths(6), now()
+                                $candidate->hasTestedWithinDateRange(
+                                    $test->testing_at->subMonths(6), now(), $test
                                 ),
                         ])>{{ $candidate->passport_number }}</div>
                         @can('View:User')
@@ -250,7 +250,9 @@
                         @csrf
                         <input type="text" id="candidateUserIdInput" class="col-md-1" name="user_id" required />
                         <div class="col-md-6"></div>
-                        <button class="btn btn-success col-md-5 submitButton" id="addCandidateButton">Add</button>
+                        <div class="col-md-1"></div>
+                        <button class="btn btn-success col-md-2 submitButton addCandidateButton" name="function" value="schedule">Schedule</button>
+                        <button class="btn btn-success col-md-2 submitButton addCandidateButton" name="function" value="reschedule">Reschedule</button>
                         <button class="btn btn-success col-md-5" id="addingCandidateButton" hidden disabled>
                             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                             Adding
