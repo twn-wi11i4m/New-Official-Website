@@ -14,6 +14,13 @@ return new class extends Migration
         Schema::create('members', function (Blueprint $table) {
             $table->unsignedBigInteger('id');
             $table->unsignedBigInteger('user_id');
+            $table->boolean('is_active')->default(false);
+            $table->date('expired_on');
+            $table->date('actual_expired_on');
+            $table->string('prefix_name')->nullable();
+            $table->string('nickname')->nullable();
+            $table->string('suffix_name')->nullable();
+            $table->string('address_id')->nullable();
             $table->timestamps();
         });
     }

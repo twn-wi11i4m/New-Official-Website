@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\AdmissionTests\Candidates;
 
 use App\Models\AdmissionTest;
 use App\Models\ContactHasVerification;
+use App\Models\Member;
 use App\Models\User;
 use App\Models\UserHasContact;
 use App\Notifications\AdmissionTest\Admin\AssignAdmissionTest;
@@ -222,6 +223,63 @@ class StoreTest extends TestCase
         $response->assertInvalid(['function' => 'The function field does not exist in schedule, reschedule.']);
     }
 
+    public function test_user_id_has_already_member()
+    {
+        Member::create([
+            'user_id' => $this->user->id,
+            'is_active' => true,
+            'expired_on' => now()->endOfYear(),
+            'actual_expired_on' => now()->addYear()->startOfYear()->addDays(21),
+        ]);
+        $response = $this->actingAs($this->user)->postJson(
+            route(
+                'admin.admission-tests.candidates.store',
+                ['admission_test' => $this->test]
+            ),
+            [
+                'user_id' => $this->user->id,
+                'function' => 'abc',
+            ]
+        );
+        $response->assertInvalid(['user_id' => 'The selected user id has already member.']);
+    }
+
+    public function test_user_id_has_already_qualification_for_membership()
+    {
+        Member::create([
+            'user_id' => $this->user->id,
+            'expired_on' => now()->subYears(2)->endOfYear(),
+            'actual_expired_on' => now()->subYear()->startOfYear()->addDays(21),
+        ]);
+        $response = $this->actingAs($this->user)->postJson(
+            route(
+                'admin.admission-tests.candidates.store',
+                ['admission_test' => $this->test]
+            ),
+            [
+                'user_id' => $this->user->id,
+                'function' => 'schedule',
+            ]
+        );
+        $response->assertInvalid(['user_id' => 'The selected user id has already qualification for membership.']);
+    }
+
+    public function test_user_id_already_schedule_this_admission_test()
+    {
+        $this->test->candidates()->attach($this->user->id);
+        $response = $this->actingAs($this->user)->postJson(
+            route(
+                'admin.admission-tests.candidates.store',
+                ['admission_test' => $this->test]
+            ),
+            [
+                'user_id' => $this->user->id,
+                'function' => 'schedule',
+            ]
+        );
+        $response->assertInvalid(['user_id' => 'The selected user id has already schedule this admission test.']);
+    }
+
     public function test_schedule_function_but_user_has_other_admission_test_on_future()
     {
         $newTestTestingAt = now()->addDay();
@@ -230,10 +288,7 @@ class StoreTest extends TestCase
                 'testing_at' => $newTestTestingAt,
                 'expect_end_at' => $newTestTestingAt->addHour(),
             ])->create();
-        $test->candidates()->attach($this->user->id, [
-            'is_present' => 1,
-            'is_pass' => 1,
-        ]);
+        $test->candidates()->attach($this->user->id);
         $response = $this->actingAs($this->user)->postJson(
             route(
                 'admin.admission-tests.candidates.store',
@@ -259,7 +314,7 @@ class StoreTest extends TestCase
                 'function' => 'reschedule',
             ]
         );
-        $response->assertInvalid(['user_id' => 'The selected user id have no scheduled other admission test.']);
+        $response->assertInvalid(['user_id' => 'The selected user id have no scheduled other admission test after than now.']);
     }
 
     public function test_user_id_of_user_of_passport_has_already_been_qualification_for_membership()
@@ -274,7 +329,12 @@ class StoreTest extends TestCase
                 'testing_at' => $this->test->testing_at->subMonths(6)->addDay(),
                 'expect_end_at' => $this->test->expect_end_at->subMonths(6)->addDay(),
             ])->create();
-        $oldTest->candidates()->attach($this->user->id, [
+        $user = User::factory()
+            ->state([
+                'passport_type_id' => $this->user->passport_type_id,
+                'passport_number' => $this->user->passport_number,
+            ])->create();
+        $oldTest->candidates()->attach($user->id, [
             'is_present' => 1,
             'is_pass' => 1,
         ]);
@@ -429,7 +489,6 @@ class StoreTest extends TestCase
                 ]
             ),
         ]);
-        $this->user->notify(new AssignAdmissionTest($this->test));
         Notification::assertSentTo(
             [$this->user], AssignAdmissionTest::class
         );

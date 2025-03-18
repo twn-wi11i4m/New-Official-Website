@@ -47,18 +47,31 @@ class User extends Authenticatable
 
     protected function name(): Attribute
     {
+        $member = $this->member;
+
         return Attribute::make(
-            get: function (mixed $value, array $attributes) {
+            get: function (mixed $value, array $attributes) use ($member) {
                 $name = [
                     '1' => $attributes['given_name'],
-                    '3' => $attributes['family_name'],
+                    '4' => $attributes['family_name'],
                 ];
                 if ($attributes['middle_name'] != '') {
                     $name['2'] = $attributes['middle_name'];
                 }
+                if ($member) {
+                    if ($member->prefix_name) {
+                        $name['0'] = "$member->prefix_name.";
+                    }
+                    if ($member->nickname) {
+                        $name['3'] = "'$member->nickname'";
+                    }
+                    if ($member->suffix_name) {
+                        $name['5'] = "$member->suffix_name.";
+                    }
+                }
                 ksort($name);
 
-                return implode(', ', $name);
+                return implode(' ', $name);
             }
         );
     }
@@ -166,9 +179,9 @@ class User extends Authenticatable
         return $this->hasOne(Member::class);
     }
 
-    public function isMember()
+    public function isActiveMember()
     {
-        return (bool) $this->member;
+        return (bool) $this->member && $this->member->is_active;
     }
 
     public function proctorTests()
@@ -182,13 +195,39 @@ class User extends Authenticatable
             ->withPivot(['is_present', 'is_pass']);
     }
 
+    public function futureAdmissionTest()
+    {
+        return $this->hasOneThrough(AdmissionTest::class, AdmissionTestHasCandidate::class, 'user_id', 'id', 'id', 'test_id')
+            ->where('testing_at', '>', now());
+    }
+
+    public function hasPassedAdmissionTest()
+    {
+        return in_array(
+            true,
+            $this->admissionTests
+                ->pluck('pivot.is_pass')
+                ->toArray(),
+        );
+    }
+
+    public function hasQualificationOfMembership()
+    {
+        return $this->member || $this->hasPassedAdmissionTest();
+    }
+
     public function hasSamePassportAlreadyQualificationOfMembership()
     {
-        return User::where('passport_type_id', $this->passport_type_id)
+        return self::where('passport_type_id', $this->passport_type_id)
             ->where('passport_number', $this->passport_number)
-            ->whereHas(
-                'admissionTests', function ($query) {
-                    $query->where('is_pass', true);
+            ->where(
+                function ($query) {
+                    $query->has('member')
+                        ->orWhereHas(
+                            'admissionTests', function ($query) {
+                                $query->where('is_pass', true);
+                            }
+                        );
                 }
             )->exists();
     }
@@ -211,14 +250,16 @@ class User extends Authenticatable
 
     public function hasTestedWithinDateRange($form, $to, ?AdmissionTest $ignore = null)
     {
-        $return = $this->admissionTests()
-            ->whereBetween('testing_at', [$form, $to])
-            ->where('is_present', true);
-        if ($ignore) {
-            $return = $return->whereNot('test_id', $ignore->id);
+        foreach ($this->admissionTests as $test) {
+            if (
+                $test->testing_at >= $form && $test->testing_at <= $to &&
+                (! $ignore || $ignore->id != $test->id)
+            ) {
+                return true;
+            }
         }
 
-        return $return->exists();
+        return false;
     }
 
     public function hasOtherUserSamePassportJoinedFutureTest()

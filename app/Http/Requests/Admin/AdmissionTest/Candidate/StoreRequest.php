@@ -28,10 +28,7 @@ class StoreRequest extends FormRequest
 
     public function messages(): array
     {
-        return [
-            'passport_type_id.required' => 'The passport type field is required.',
-            'function.in' => 'The function field does not exist in schedule, reschedule.',
-        ];
+        return ['function.in' => 'The function field does not exist in schedule, reschedule.'];
     }
 
     public function after()
@@ -50,19 +47,31 @@ class StoreRequest extends FormRequest
                     $this->merge([
                         'user' => $user,
                         'now' => $now,
-                        'futureTest' => $user->admissionTests()
-                            ->where('testing_at', '>', $now)
-                            ->first(),
                     ]);
-                    if ($this->function == 'schedule' && $this->futureTest) {
+                    if ($this->user->isActiveMember()) {
+                        $validator->errors()->add(
+                            'user_id',
+                            'The selected user id has already member.'
+                        );
+                    } elseif ($this->user->hasQualificationOfMembership()) {
+                        $validator->errors()->add(
+                            'user_id',
+                            'The selected user id has already qualification for membership.'
+                        );
+                    } elseif ($this->user->futureAdmissionTest && $user->futureAdmissionTest->id == $admissionTest->id) {
+                        $validator->errors()->add(
+                            'user_id',
+                            'The selected user id has already schedule this admission test.'
+                        );
+                    } elseif ($this->function == 'schedule' && $user->futureAdmissionTest) {
                         $validator->errors()->add(
                             'user_id',
                             'The selected user id has already schedule other admission test.'
                         );
-                    } elseif ($this->function == 'reschedule' && ! $this->futureTest) {
+                    } elseif ($this->function == 'reschedule' && ! $user->futureAdmissionTest) {
                         $validator->errors()->add(
                             'user_id',
-                            'The selected user id have no scheduled other admission test.'
+                            'The selected user id have no scheduled other admission test after than now.'
                         );
                     } elseif ($user->hasSamePassportAlreadyQualificationOfMembership()) {
                         $validator->errors()->add(
