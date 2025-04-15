@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\Contact\StoreRequest;
 use App\Http\Requests\Admin\Contact\UpdateRequest;
 use App\Http\Requests\StatusRequest;
 use App\Models\ContactHasVerification;
+use App\Models\User;
 use App\Models\UserHasContact;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -31,10 +32,23 @@ class ContactController extends Controller implements HasMiddleware
             'creator_ip' => $request->ip(),
             'middleware_should_count' => false,
         ]);
-        ContactHasVerification::where('type', $contact->type)
+        $verifications = ContactHasVerification::where('type', $contact->type)
             ->where('contact', $contact->contact)
             ->whereNot('id', $verification->id)
-            ->update(['expired_at' => now()]);
+            ->get(['id', 'contact_id']);
+        if (count($verifications)) {
+            UserHasContact::whereIn('id', $verifications->pluck('contact_id')->toArray())
+                ->update(['is_default' => false]);
+            if ($contact->type == 'email') {
+                User::whereHas(
+                    'contacts', function ($query) use ($verifications) {
+                        $query->whereIn('id', $verifications->pluck('contact_id')->toArray());
+                    }
+                )->update(['synced_to_stripe' => false]);
+            }
+            ContactHasVerification::whereIn('id', $verifications->pluck('id')->toArray())
+                ->update(['expired_at' => now()]);
+        }
     }
 
     public function verify(StatusRequest $request, UserHasContact $contact)

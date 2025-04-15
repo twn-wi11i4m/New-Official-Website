@@ -2,6 +2,9 @@
 
 @section('main')
     <section class="container">
+        @auth
+            <x-stripe-alert />
+        @endauth
         <h2 class="fw-bold mb-2 text-uppercase">Admission Tests</h2>
         @vite('resources/css/ckEditor.css')
         <article class="ck-content">
@@ -31,7 +34,7 @@
                             <td>
                                 @if(auth()->user() && auth()->user()->futureAdmissionTest)
                                     @if(auth()->user()->futureAdmissionTest->id == $test->id)
-                                        <button class="btn btn-secondary">Cancel</button>
+                                        <a class="btn btn-primary" href="{{ route('admission-tests.candidates.show', ['admission_test' => $test]) }}">Ticket</a>
                                     @else
                                         @if(
                                             (auth()->user()->defaultEmail || auth()->user()->defaultMobile) &&
@@ -47,7 +50,6 @@
                                     @if(
                                         !auth()->user() ||
                                         (
-                                            (auth()->user()->defaultEmail || auth()->user()->defaultMobile) &&
                                             $test->testing_at > now()->addDays(2)->endOfDay() &&
                                             !auth()->user()->hasTestedWithinDateRange($test->testing_at->subMonths(6), now())
                                         )

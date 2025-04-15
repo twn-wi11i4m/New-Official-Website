@@ -28,6 +28,8 @@ class User extends Authenticatable
         'passport_type_id',
         'passport_number',
         'birthday',
+        'stripe_id',
+        'synced_to_stripe',
     ];
 
     public $sortable = [
@@ -44,6 +46,20 @@ class User extends Authenticatable
     protected $casts = [
         'password' => 'hashed',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::updating(
+            function (User $user) {
+                if ($user->isDirty(['family_name', 'middle_name', 'given_name'])) {
+                    $user->synced_to_stripe = false;
+                }
+            }
+        );
+    }
 
     protected function name(): Attribute
     {

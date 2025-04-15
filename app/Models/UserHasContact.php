@@ -22,6 +22,47 @@ class UserHasContact extends Model
         'is_default',
     ];
 
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::created(
+            function (UserHasContact $contact) {
+                if ($contact->is_default && $contact->type == 'email') {
+                    $contact->user()->update(['synced_to_stripe' => false]);
+                }
+            }
+        );
+        static::updated(
+            function (UserHasContact $contact) {
+                if ($contact->wasChanged('is_default')) {
+                    if ($contact->type == 'email') {
+                        $contact->user()->update(['synced_to_stripe' => false]);
+                    }
+                    if ($contact->is_default) {
+                        UserHasContact::where('type', $contact->type)
+                            ->where('user_id', $contact->user_id)
+                            ->whereNot('id', $contact->id)
+                            ->update(['is_default' => false]);
+                        $contacts = UserHasContact::where('type', $contact->type)
+                            ->where('contact', $contact->contact)
+                            ->whereNot('id', $contact->id)
+                            ->get(['id', 'user_id']);
+                        if (count($contacts)) {
+                            if ($contact->type == 'email') {
+                                User::whereIn('id', $contacts->pluck('user_id')->toArray())
+                                    ->update(['synced_to_stripe' => false]);
+                            }
+                            UserHasContact::whereIn('id', $contacts->pluck('id')->toArray())
+                                ->update(['is_default' => false]);
+                        }
+                    }
+                }
+            }
+        );
+    }
+
     public function getIsDefaultAttribute($value): bool
     {
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
