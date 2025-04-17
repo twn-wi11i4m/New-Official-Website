@@ -15,6 +15,12 @@ class TypeController extends Controller implements HasMiddleware
         return [(new Middleware('permission:Edit:Admission Test'))];
     }
 
+    public function index()
+    {
+        return view('admin.admission-test-types.index')
+            ->with('types', AdmissionTestType::orderBy('display_order')->get());
+    }
+
     public function store(TypeRequest $request)
     {
         AdmissionTestType::create([
@@ -24,6 +30,6 @@ class TypeController extends Controller implements HasMiddleware
             'display_order' => $request->display_order,
         ]);
 
-        return redirect()->route('admin.index');
+        return redirect()->route('admin.admission-test-types.index');
     }
 }
