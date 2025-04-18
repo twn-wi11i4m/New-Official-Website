@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\AdmissionTest;
 
+use App\Models\AdmissionTestType;
 use App\Models\District;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -15,6 +16,7 @@ class TestRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'type_id' => 'required|integer|exists:'.AdmissionTestType::class.',id',
             'district_id' => 'required|integer|exists:'.District::class.',id',
             'address' => 'required|string|max:255',
             'location' => 'required|string|max:255',
@@ -28,6 +30,9 @@ class TestRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'type_id.required' => 'The type field is required.',
+            'type_id.integer' => 'The type field must be an integer.',
+            'type_id.exists' => 'The selected type is invalid.',
             'district_id.required' => 'The district field is required.',
             'district_id.integer' => 'The district field must be an integer.',
             'district_id.exists' => 'The selected district is invalid.',

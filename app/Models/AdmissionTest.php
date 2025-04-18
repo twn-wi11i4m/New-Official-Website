@@ -11,6 +11,8 @@ class AdmissionTest extends Model
     use HasFactory, Sortable;
 
     protected $fillable = [
+        'type_id',
+        'admission_tests',
         'testing_at',
         'expect_end_at',
         'location_id',
@@ -28,6 +30,11 @@ class AdmissionTest extends Model
         'testing_at' => 'datetime',
         'expect_end_at' => 'datetime',
     ];
+
+    public function type()
+    {
+        return $this->belongsTo(AdmissionTestType::class, 'type_id');
+    }
 
     public function location()
     {

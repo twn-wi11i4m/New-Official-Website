@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller as BaseController;
 use App\Http\Requests\Admin\AdmissionTest\TestRequest;
 use App\Models\Address;
 use App\Models\AdmissionTest;
+use App\Models\AdmissionTestType;
 use App\Models\Area;
 use App\Models\Location;
 use App\Notifications\AdmissionTest\Admin\CanceledAdmissionTest;
@@ -82,6 +83,11 @@ class Controller extends BaseController implements HasMiddleware
 
         return view('admin.admission-tests.create')
             ->with(
+                'types', AdmissionTestType::orderBy('display_order')
+                    ->get(['id', 'name'])
+                    ->pluck('name', 'id')
+                    ->toArray()
+            )->with(
                 'locations', Location::distinct()
                     ->get('name')
                     ->pluck('name')
@@ -106,6 +112,7 @@ class Controller extends BaseController implements HasMiddleware
             'address' => $request->address,
         ]);
         $test = AdmissionTest::create([
+            'type_id' => $request->type_id,
             'testing_at' => $request->testing_at,
             'expect_end_at' => $request->expect_end_at,
             'location_id' => $location->id,
@@ -140,6 +147,11 @@ class Controller extends BaseController implements HasMiddleware
         return view('admin.admission-tests.show')
             ->with('test', $admissionTest)
             ->with(
+                'types', AdmissionTestType::orderBy('display_order')
+                    ->get(['id', 'name'])
+                    ->pluck('name', 'id')
+                    ->toArray()
+            )->with(
                 'locations', Location::distinct()
                     ->has('admissionTests')
                     ->get('name')
@@ -228,6 +240,7 @@ class Controller extends BaseController implements HasMiddleware
         $address = $this->updateAddress($admissionTest->address, $request->address, $request->district_id);
         $location = $this->updateLocation($admissionTest->location, $request->location);
         $admissionTest->update([
+            'type_id' => $request->type_id,
             'testing_at' => $request->testing_at,
             'expect_end_at' => $request->expect_end_at,
             'location_id' => $location->id,
@@ -258,6 +271,7 @@ class Controller extends BaseController implements HasMiddleware
 
         return [
             'success' => 'The admission test update success!',
+            'type_id' => $admissionTest->type_id,
             'testing_at' => $admissionTest->testing_at->format('Y-m-d H:i'),
             'expect_end_at' => $admissionTest->expect_end_at->format('Y-m-d H:i'),
             'location' => $admissionTest->location->name,
