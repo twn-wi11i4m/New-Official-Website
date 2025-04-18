@@ -304,6 +304,19 @@
                                                 'active' => Route::current()->getName() == 'admin.admission-test-types.index',
                                             ])>Index</a>
                                         </li>
+                                        <li>
+                                            <a href="{{ route('admin.admission-test-types.create') }}" @class([
+                                                'nav-link',
+                                                'align-items-center',
+                                                'active' => Route::current()->getName() == 'admin.admission-test-types.create',
+                                            ])>Create</a>
+                                        </li>
+                                        @if(Route::current()->getName() == 'admin.admission-test-types.edit')
+                                            <li>
+                                                <a href="{{ route('admin.admission-test-types.edit', ['admission_test_type' => $type]) }}"
+                                                    class="nav-link align-items-center active">Edit</a>
+                                            </li>
+                                        @endif
                                     </ul>
                                 </li>
                             @endcan
