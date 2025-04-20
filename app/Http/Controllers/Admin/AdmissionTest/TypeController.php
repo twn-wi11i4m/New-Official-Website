@@ -18,7 +18,7 @@ class TypeController extends Controller implements HasMiddleware
 
     public function index()
     {
-        return view('admin.admission-test-types.index')
+        return view('admin.admission-test.types.index')
             ->with('types', AdmissionTestType::orderBy('display_order')->get());
     }
 
@@ -36,7 +36,7 @@ class TypeController extends Controller implements HasMiddleware
         }
         $types[0] = 'top';
 
-        return view('admin.admission-test-types.create')
+        return view('admin.admission-test.types.create')
             ->with('types', $types);
     }
 
@@ -53,7 +53,7 @@ class TypeController extends Controller implements HasMiddleware
         ]);
         DB::commit();
 
-        return redirect()->route('admin.admission-test-types.index');
+        return redirect()->route('admin.admission-test.types.index');
     }
 
     public function edit(AdmissionTestType $admissionTestType)
@@ -72,7 +72,7 @@ class TypeController extends Controller implements HasMiddleware
         }
         $types[0] = 'top';
 
-        return view('admin.admission-test-types.edit')
+        return view('admin.admission-test.types.edit')
             ->with('type', $admissionTestType)
             ->with('types', $types);
     }
@@ -103,6 +103,6 @@ class TypeController extends Controller implements HasMiddleware
         ]);
         DB::commit();
 
-        return redirect()->route('admin.admission-test-types.index');
+        return redirect()->route('admin.admission-test.types.index');
     }
 }

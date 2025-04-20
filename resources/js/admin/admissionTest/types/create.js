@@ -1,30 +1,20 @@
 import { post } from "@/submitForm";
 
 const form = document.getElementById('form');
+
 const name = document.getElementById('validationName');
 const nameFeedback = document.getElementById('nameFeedback');
-const type = document.getElementById('validationType');
-const typeFeedback = document.getElementById('typeFeedback');
+const intervalMonth = document.getElementById('validationIntervalMonth');
+const intervalMonthFeedback = document.getElementById('intervalMonthFeedback');
+const isActive = document.getElementById('isActive');
 const displayOrder = document.getElementById('validationDisplayOrder');
 const displayOrderFeedback = document.getElementById('displayOrderFeedback');
-const saveButton = document.getElementById('saveButton');
-const savingButton = document.getElementById('savingButton');
+const createButton = document.getElementById('createButton');
+const creatingButton = document.getElementById('creatingButton');
 
-type.addEventListener(
-    'change', function(event) {
-        displayOrder.disabled = ! event.target.value;
-        for(let option of displayOrder.options) {
-            if(!option.disabled) {
-                option.hidden = option.dataset.typeid != event.target.value;
-            }
-        }
-        displayOrder.value = "";
-    }
-);
+const inputs = [name, intervalMonth, displayOrder];
 
-const inputs = [name, type, displayOrder];
-
-const feedbacks = [nameFeedback, typeFeedback, displayOrderFeedback];
+const feedbacks = [nameFeedback, intervalMonthFeedback, displayOrderFeedback];
 
 function hasError() {
     for(let feedback of feedbacks) {
@@ -48,23 +38,23 @@ function validation() {
         name.classList.add('is-invalid');
         nameFeedback.className = 'invalid-feedback';
         nameFeedback.innerText = 'The name field is required.';
-    } else if(name.validity.tooShort) {
-        name.classList.add('is-invalid');
-        nameFeedback.className = 'invalid-feedback';
-        nameFeedback.innerText = `The name field must be at least ${name.minLength} characters.`;
     } else if(name.validity.tooLong) {
         name.classList.add('is-invalid');
         nameFeedback.className = 'invalid-feedback';
-        nameFeedback.innerText = `The name field must not be greater than ${name.maxLength} characters.`;
-    } else if(name.validity.patternMismatch) {
-        name.classList.add('is-invalid');
-        nameFeedback.className = 'invalid-feedback';
-        nameFeedback.innerText = `The name field cannot has ";".`;
+        nameFeedback.innerText = 'The name field must not be greater than 255 characters.';
     }
-    if(type.validity.valueMissing) {
-        type.classList.add('is-invalid');
-        typeFeedback.className = 'invalid-feedback';
-        typeFeedback.innerText = 'The type field is required.';
+    if(intervalMonth.validity.valueMissing) {
+        intervalMonth.classList.add('is-invalid');
+        intervalMonthFeedback.className = 'invalid-feedback';
+        intervalMonthFeedback.innerText = 'The interval month field is required.';
+    } else if(intervalMonth.validity.rangeOverflow) {
+        intervalMonth.classList.add('is-invalid');
+        intervalMonthFeedback.className = 'invalid-feedback';
+        intervalMonthFeedback.innerText = `The interval month field must be at least ${intervalMonth.min}.`;
+    } else if(intervalMonth.validity.range) {
+        intervalMonth.classList.add('is-invalid');
+        intervalMonthFeedback.className = 'invalid-feedback';
+        intervalMonthFeedback.innerText = `The interval month field must be at least ${intervalMonth.max}.`;
     }
     if(displayOrder.validity.valueMissing) {
         displayOrder.classList.add('is-invalid');
@@ -75,8 +65,8 @@ function validation() {
 }
 
 function successCallback(response) {
-    savingButton.hidden = true;
-    saveButton.hidden = false;
+    creatingButton.hidden = true;
+    createButton.hidden = false;
     window.location.href = response.request.responseURL;
 }
 
@@ -98,9 +88,9 @@ function failCallback(error) {
                     input = name;
                     feedback = nameFeedback;
                     break;
-                case 'type_id':
-                    input = type;
-                    feedback = typeFeedback;
+                case 'interval_month':
+                    input = intervalMonth;
+                    feedback = intervalMonthFeedback;
                     break;
                 case 'display_order':
                     input = displayOrder;
@@ -121,23 +111,24 @@ function failCallback(error) {
             input.classList.add('is-valid');
         }
     }
-    savingButton.hidden = true;
-    saveButton.hidden = false;
+    creatingButton.hidden = true;
+    createButton.hidden = false;
 }
 
 form.addEventListener(
     'submit', function (event) {
         event.preventDefault();
-        if(savingButton.hidden) {
+        if(creatingButton.hidden) {
             if(validation()) {
-                saveButton.hidden = true;
-                savingButton.hidden = false;
+                createButton.hidden = true;
+                creatingButton.hidden = false;
                 let data = {
                     name: name.value,
-                    type_id: type.value,
+                    interval_month: intervalMonth.value,
+                    is_active: isActive.checked,
                     display_order: displayOrder.value,
                 }
-                post(form.action, successCallback, failCallback, 'put', data);
+                post(form.action, successCallback, failCallback, 'post', data);
             }
         }
     }

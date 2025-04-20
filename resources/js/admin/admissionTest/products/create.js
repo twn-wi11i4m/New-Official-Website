@@ -1,20 +1,19 @@
-import { post } from "../../submitForm";
+import { post } from "@/submitForm";
 
 const form = document.getElementById('form');
 
 const name = document.getElementById('validationName');
 const nameFeedback = document.getElementById('nameFeedback');
-const intervalMonth = document.getElementById('validationIntervalMonth');
-const intervalMonthFeedback = document.getElementById('intervalMonthFeedback');
-const isActive = document.getElementById('isActive');
-const displayOrder = document.getElementById('validationDisplayOrder');
-const displayOrderFeedback = document.getElementById('displayOrderFeedback');
+const minimumAge = document.getElementById('validationMinimumAge');
+const minimumAgeFeedback = document.getElementById('minimumAgeFeedback');
+const maximumAge = document.getElementById('validationMaximumAge');
+const maximumAgeFeedback = document.getElementById('maximumAgeFeedback');
 const createButton = document.getElementById('createButton');
 const creatingButton = document.getElementById('creatingButton');
 
-const inputs = [name, intervalMonth, displayOrder];
+const inputs = [name, minimumAge, maximumAge];
 
-const feedbacks = [nameFeedback, intervalMonthFeedback, displayOrderFeedback];
+const feedbacks = [nameFeedback, minimumAgeFeedback, maximumAgeFeedback];
 
 function hasError() {
     for(let feedback of feedbacks) {
@@ -43,23 +42,35 @@ function validation() {
         nameFeedback.className = 'invalid-feedback';
         nameFeedback.innerText = 'The name field must not be greater than 255 characters.';
     }
-    if(intervalMonth.validity.valueMissing) {
-        intervalMonth.classList.add('is-invalid');
-        intervalMonthFeedback.className = 'invalid-feedback';
-        intervalMonthFeedback.innerText = 'The interval month field is required.';
-    } else if(intervalMonth.validity.rangeOverflow) {
-        intervalMonth.classList.add('is-invalid');
-        intervalMonthFeedback.className = 'invalid-feedback';
-        intervalMonthFeedback.innerText = `The interval month field must be at least ${intervalMonth.min}.`;
-    } else if(intervalMonth.validity.range) {
-        intervalMonth.classList.add('is-invalid');
-        intervalMonthFeedback.className = 'invalid-feedback';
-        intervalMonthFeedback.innerText = `The interval month field must be at least ${intervalMonth.max}.`;
+    if(minimumAge.value) {
+        if(minimumAge.validity.rangeUnderflow) {
+            minimumAge.classList.add('is-invalid');
+            minimumAgeFeedback.className = 'invalid-feedback';
+            minimumAgeFeedback.innerText = `The minimum age field must be at least ${minimumAge.min}.`;
+        } else if(minimumAge.validity.rangeOverflow) {
+            minimumAge.classList.add('is-invalid');
+            minimumAgeFeedback.className = 'invalid-feedback';
+            minimumAgeFeedback.innerText = `The minimum age field must not be greater than ${minimumAge.max}.`;
+        } else if(minimumAge.value >= maximumAge.value) {
+            minimumAge.classList.add('is-invalid');
+            minimumAgeFeedback.className = 'invalid-feedback';
+            minimumAgeFeedback.innerText = `The minimum age field must be less than maximum age.`;
+        }
     }
-    if(displayOrder.validity.valueMissing) {
-        displayOrder.classList.add('is-invalid');
-        displayOrderFeedback.className = 'invalid-feedback';
-        displayOrderFeedback.innerText = 'The display order field is required.';
+    if(maximumAge.value) {
+        if(maximumAge.validity.rangeUnderflow) {
+            maximumAge.classList.add('is-invalid');
+            maximumAgeFeedback.className = 'invalid-feedback';
+            maximumAgeFeedback.innerText = `The maximum age field must be at least ${maximumAge.min}.`;
+        } else if(maximumAge.validity.rangeOverflow) {
+            maximumAge.classList.add('is-invalid');
+            maximumAgeFeedback.className = 'invalid-feedback';
+            maximumAgeFeedback.innerText = `The maximum age field must not be greater than ${maximumAge.max}.`;
+        } else if(minimumAge.value >= maximumAge.value) {
+            maximumAge.classList.add('is-invalid');
+            maximumAgeFeedback.className = 'invalid-feedback';
+            maximumAgeFeedback.innerText = `The maximum age field must be greater than minimum age.`;
+        }
     }
     return !hasError();
 }
@@ -88,13 +99,13 @@ function failCallback(error) {
                     input = name;
                     feedback = nameFeedback;
                     break;
-                case 'interval_month':
-                    input = intervalMonth;
-                    feedback = intervalMonthFeedback;
+                case 'minimum_age':
+                    input = minimumAge;
+                    feedback = minimumAgeFeedback;
                     break;
-                case 'display_order':
-                    input = displayOrder;
-                    feedback = displayOrderFeedback;
+                case 'maximum_age':
+                    input = maximumAge;
+                    feedback = maximumAgeFeedback;
                     break;
             }
             if(feedback) {
@@ -122,11 +133,12 @@ form.addEventListener(
             if(validation()) {
                 createButton.hidden = true;
                 creatingButton.hidden = false;
-                let data = {
-                    name: name.value,
-                    interval_month: intervalMonth.value,
-                    is_active: isActive.checked,
-                    display_order: displayOrder.value,
+                let data = {name: name.value};
+                if(minimumAge.value) {
+                    data['minimum_age'] = minimumAge.value;
+                }
+                if(minimumAge.value) {
+                    data['maximum_age'] = maximumAge.value;
                 }
                 post(form.action, successCallback, failCallback, 'post', data);
             }

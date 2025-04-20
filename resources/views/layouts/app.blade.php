@@ -277,6 +277,38 @@
                                 <li class="nav-item accordion">
                                     <button role="button"
                                         data-bs-toggle="collapse" aria-expanded="true"
+                                        data-bs-target="#asideNavAdminAdmissionTestProduct" aria-controls="asideNavAdminAdmissionTestProduct"
+                                        style="height: 0em"
+                                        @class([
+                                            'nav-item',
+                                            'accordion-button',
+                                            'collapsed' => !str_starts_with(
+                                                Route::current()->getName(),
+                                                'admin.admission-test.products.'
+                                            ),
+                                        ])>
+                                        Admission Test Types
+                                    </button>
+                                    <ul id="asideNavAdminAdmissionTestProduct" @class([
+                                        'accordion-collapse',
+                                        'collapse',
+                                        'show' => str_starts_with(
+                                            Route::current()->getName(),
+                                            'admin.admission-test.products.'
+                                        ),
+                                    ])>
+                                        <li>
+                                            <a href="{{ route('admin.admission-test.products.create') }}" @class([
+                                                'nav-link',
+                                                'align-items-center',
+                                                'active' => Route::current()->getName() == 'admin.admission-test.products.create',
+                                            ])>Create</a>
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li class="nav-item accordion">
+                                    <button role="button"
+                                        data-bs-toggle="collapse" aria-expanded="true"
                                         data-bs-target="#asideNavAdminAdmissionTestType" aria-controls="asideNavAdminAdmissionTestType"
                                         style="height: 0em"
                                         @class([
@@ -284,7 +316,7 @@
                                             'accordion-button',
                                             'collapsed' => !str_starts_with(
                                                 Route::current()->getName(),
-                                                'admin.admission-test-types.'
+                                                'admin.admission-test.types.'
                                             ),
                                         ])>
                                         Admission Test Types
@@ -294,26 +326,26 @@
                                         'collapse',
                                         'show' => str_starts_with(
                                             Route::current()->getName(),
-                                            'admin.admission-test-types.'
+                                            'admin.admission-test.types.'
                                         ),
                                     ])>
                                         <li>
-                                            <a href="{{ route('admin.admission-test-types.index') }}" @class([
+                                            <a href="{{ route('admin.admission-test.types.index') }}" @class([
                                                 'nav-link',
                                                 'align-items-center',
-                                                'active' => Route::current()->getName() == 'admin.admission-test-types.index',
+                                                'active' => Route::current()->getName() == 'admin.admission-test.types.index',
                                             ])>Index</a>
                                         </li>
                                         <li>
-                                            <a href="{{ route('admin.admission-test-types.create') }}" @class([
+                                            <a href="{{ route('admin.admission-test.types.create') }}" @class([
                                                 'nav-link',
                                                 'align-items-center',
-                                                'active' => Route::current()->getName() == 'admin.admission-test-types.create',
+                                                'active' => Route::current()->getName() == 'admin.admission-test.types.create',
                                             ])>Create</a>
                                         </li>
-                                        @if(Route::current()->getName() == 'admin.admission-test-types.edit')
+                                        @if(Route::current()->getName() == 'admin.admission-test.types.edit')
                                             <li>
-                                                <a href="{{ route('admin.admission-test-types.edit', ['admission_test_type' => $type]) }}"
+                                                <a href="{{ route('admin.admission-test.types.edit', ['admission_test_type' => $type]) }}"
                                                     class="nav-link align-items-center active">Edit</a>
                                             </li>
                                         @endif
