@@ -6,13 +6,13 @@
 
 ### Homebrew
 
-1. install:
+1. Install:
 
 ```shell
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-2. follow terminal output to set shellenv to zprofile
+2. Follow terminal output to set shellenv to zprofile
 
 ```shell
 touch ~/.zprofile
@@ -23,13 +23,13 @@ eval "$(/usr/local/bin/brew shellenv)"
 
 ### NVM
 
-1. install:
+1. Install:
 
 ```shell
 brew install nvm
 ```
 
-2. add to ~/.zprofile
+2. Manually add these lines to `~/.zprofile`
 
 ```shell
 export NVM_DIR="$HOME/.nvm"
@@ -39,21 +39,21 @@ export NVM_DIR="$HOME/.nvm"
 
 ### Node and NPM
 
-1. install:
+1. Install:
 
 ```shell
-nvm install --lts 
+nvm install --lts
 ```
 
 ### PyEnv
 
-1. install:
+1. Install:
 
 ```shell
 brew install pyenv
 ```
 
-2. add to ~/.zprofile
+2. Manually add these lines to `~/.zprofile`
 
 ```shell
 export PYENV_ROOT="$HOME/.pyenv"
@@ -70,7 +70,7 @@ eval "$(pyenv virtualenv-init -)"
 
 ### Python
 
-1. install:
+1. Install:
 
 ```shell
 pyenv install 3.11.4
@@ -79,14 +79,14 @@ pyenv global 3.11.4
 
 ### php 8.2
 
-1. first time install:
+1. First time install:
 
 ```shell
 brew install php@8.2
 brew link php@8.2
 ```
 
-2. change new php version
+2. If you have installed php 8.1 before, you need to unlink it first and change new php version:
 
 ```shell
 brew unlink php@8.1
@@ -95,6 +95,8 @@ brew link php@8.2
 ```
 
 ### Composer
+
+1. Install:
 
 ```shell
 brew install composer
