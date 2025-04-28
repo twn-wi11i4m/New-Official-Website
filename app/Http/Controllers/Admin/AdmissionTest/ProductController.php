@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin\AdmissionTest;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdmissionTest\ProductRequest;
+use App\Models\AdmissionTestPrice;
 use App\Models\AdmissionTestProduct;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller implements HasMiddleware
 {
@@ -28,11 +30,21 @@ class ProductController extends Controller implements HasMiddleware
 
     public function store(ProductRequest $request)
     {
+        DB::beginTransaction();
         $product = AdmissionTestProduct::create([
             'name' => $request->name,
             'minimum_age' => $request->minimum_age,
             'maximum_age' => $request->maximum_age,
+            'start_at' => $request->start_at,
+            'end_at' => $request->end_at,
+            'quota' => $request->quota,
         ]);
+        AdmissionTestPrice::create([
+            'product_id' => $product->id,
+            'name' => $request->price_name,
+            'price' => $request->price,
+        ]);
+        DB::commit();
 
         return redirect()->route(
             'admin.admission-test.products.show',
@@ -43,7 +55,13 @@ class ProductController extends Controller implements HasMiddleware
     public function show(AdmissionTestProduct $product)
     {
         return view('admin.admission-test.products.show')
-            ->with('product', $product);
+            ->with(
+                'product', $product->load([
+                    'prices' => function ($query) {
+                        $query->orderByDesc('start_at');
+                    },
+                ])
+            );
     }
 
     public function update(ProductRequest $request, AdmissionTestProduct $product)
@@ -52,6 +70,9 @@ class ProductController extends Controller implements HasMiddleware
             'name' => $request->name,
             'minimum_age' => $request->minimum_age,
             'maximum_age' => $request->maximum_age,
+            'start_at' => $request->start_at,
+            'end_at' => $request->end_at,
+            'quota' => $request->quota,
         ]);
 
         return [
@@ -59,6 +80,9 @@ class ProductController extends Controller implements HasMiddleware
             'name' => $product->name,
             'minimum_age' => $product->minimum_age,
             'maximum_age' => $product->maximum_age,
+            'start_at' => $product->start_at,
+            'end_at' => $product->end_at,
+            'quota' => $product->quota,
         ];
     }
 }

@@ -11,14 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('admission_test_products', function (Blueprint $table) {
+        Schema::create('admission_test_prices', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->unsignedTinyInteger('minimum_age')->nullable();
-            $table->unsignedTinyInteger('maximum_age')->nullable();
+            $table->unsignedBigInteger('product_id');
+            $table->string('name')->nullable();
+            $table->unsignedSmallInteger('price');
             $table->dateTime('start_at')->nullable();
-            $table->dateTime('end_at')->nullable();
-            $table->unsignedTinyInteger('quota')->default(2);
             $table->string('stripe_id')->nullable();
             $table->boolean('synced_to_stripe')->default(false);
             $table->timestamps();
@@ -30,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('admission_test_products');
+        Schema::dropIfExists('admission_test_prices');
     }
 };

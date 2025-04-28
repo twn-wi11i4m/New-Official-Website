@@ -13,6 +13,9 @@ class AdmissionTestProduct extends Model
         'name',
         'minimum_age',
         'maximum_age',
+        'start_at',
+        'end_at',
+        'quota',
         'stripe_id',
         'synced_to_stripe',
     ];
@@ -29,5 +32,22 @@ class AdmissionTestProduct extends Model
                 }
             }
         );
+    }
+
+    public function prices()
+    {
+        return $this->hasMany(AdmissionTestPrice::class, 'product_id');
+    }
+
+    public function price()
+    {
+        return $this->hasOne(AdmissionTestPrice::class, 'product_id')
+            ->where(
+                function ($query) {
+                    $query->whereNull('start_at')
+                        ->orWhere('start_at', '<=', now());
+                }
+            )
+            ->orderBy('start_at');
     }
 }
