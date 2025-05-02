@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdmissionTest\CandidateController as AdminCandidateController;
 use App\Http\Controllers\Admin\AdmissionTest\Controller as AdminAdmissionTestController;
+use App\Http\Controllers\Admin\AdmissionTest\PriceController as AdminAdmissionTestPriceController;
 use App\Http\Controllers\Admin\AdmissionTest\ProctorController;
 use App\Http\Controllers\Admin\AdmissionTest\ProductController as AdminAdmissionTestProductController;
 use App\Http\Controllers\Admin\AdmissionTest\TypeController as AdmissionTestTypeController;
@@ -123,6 +124,10 @@ Route::middleware('auth')->group(function () {
                 function () {
                     Route::resource('products', AdminAdmissionTestProductController::class)
                         ->except(['edit', 'destroy']);
+                    Route::resource('products/{product}/prices', AdminAdmissionTestPriceController::class)
+                        ->only('update')
+                        ->whereNumber(['product', 'price'])
+                        ->names('products.prices');
                     Route::resource('types', AdmissionTestTypeController::class)
                         ->except(['show', 'destroy'])
                         ->parameters(['types' => 'admission_test_type']);
