@@ -30,6 +30,31 @@ class PriceController extends Controller implements HasMiddleware
         ];
     }
 
+    public function store(PriceRequest $request, AdmissionTestProduct $product)
+    {
+        $price = AdmissionTestPrice::create([
+            'product_id' => $product->id,
+            'name' => $request->name,
+            'price' => $request->price,
+            'start_at' => $request->start_at,
+        ]);
+
+        return [
+            'success' => 'The admission test product price create success.',
+            'id' => $price->id,
+            'name' => $price->name,
+            'price' => $price->price,
+            'start_at' => $price->start_at,
+            'update_url' => route(
+                'admin.admission-test.products.prices.update',
+                [
+                    'product' => $product,
+                    'price' => $price,
+                ]
+            ),
+        ];
+    }
+
     public function update(PriceRequest $request, AdmissionTestProduct $product, AdmissionTestPrice $price)
     {
         $price->update([
