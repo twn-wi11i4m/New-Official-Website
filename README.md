@@ -1,6 +1,6 @@
 ### Set-up Environment
 
-Please read documents folder for windows or mac
+Please read the documents folder for Windows or Mac setup instructions.
 
 ### Pull the project
 
