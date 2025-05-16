@@ -147,7 +147,7 @@ class CandidateController extends Controller implements HasMiddleware
         return [
             'success' => 'The candidate create success',
             'user_id' => $request->user->id,
-            'name' => $request->user->name,
+            'name' => $request->user->adornedName,
             'passport_type' => $request->user->passportType->name,
             'passport_number' => $request->user->passport_number,
             'has_same_passport' => $request->user->hasOtherUserSamePassportJoinedFutureTest(),
@@ -246,7 +246,7 @@ class CandidateController extends Controller implements HasMiddleware
         $request->pivot->update(['is_present' => $request->status]);
 
         return [
-            'success' => "The candidate of $candidate->name changed to be ".($request->pivot->is_present ? 'present.' : 'absent.'),
+            'success' => "The candidate of $candidate->adornedName changed to be ".($request->pivot->is_present ? 'present.' : 'absent.'),
             'status' => $request->pivot->is_present,
         ];
     }
@@ -263,7 +263,7 @@ class CandidateController extends Controller implements HasMiddleware
         DB::commit();
 
         return [
-            'success' => "The candidate of $candidate->name changed to be ".($request->pivot->is_pass ? 'pass.' : 'fail.'),
+            'success' => "The candidate of $candidate->adornedName changed to be ".($request->pivot->is_pass ? 'pass.' : 'fail.'),
             'status' => $request->pivot->is_pass,
         ];
     }

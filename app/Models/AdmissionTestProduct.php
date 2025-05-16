@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Library\Stripe\Concerns\Models\HasStripeProduct;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AdmissionTestProduct extends Model
 {
-    use HasFactory;
+    use HasFactory, HasStripeProduct;
 
     protected $fillable = [
         'name',
