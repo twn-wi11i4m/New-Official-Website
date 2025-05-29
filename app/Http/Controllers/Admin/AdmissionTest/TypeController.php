@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Admin\AdmissionTest;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\AdmissionTest\TypeRequest;
+use App\Http\Requests\Admin\AdmissionTest\Type\DisplayOrderRequest;
+use App\Http\Requests\Admin\AdmissionTest\Type\FormRequest;
 use App\Models\AdmissionTestType;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -40,7 +41,7 @@ class TypeController extends Controller implements HasMiddleware
             ->with('types', $types);
     }
 
-    public function store(TypeRequest $request)
+    public function store(FormRequest $request)
     {
         DB::beginTransaction();
         AdmissionTestType::where('display_order', '>=', $request->display_order)
@@ -77,7 +78,7 @@ class TypeController extends Controller implements HasMiddleware
             ->with('types', $types);
     }
 
-    public function update(TypeRequest $request, AdmissionTestType $type)
+    public function update(FormRequest $request, AdmissionTestType $type)
     {
         DB::beginTransaction();
         if ($request->display_order > $request->maxDisplayOrder) {
@@ -104,5 +105,24 @@ class TypeController extends Controller implements HasMiddleware
         DB::commit();
 
         return redirect()->route('admin.admission-test.types.index');
+    }
+
+    public function displayOrder(DisplayOrderRequest $request)
+    {
+        $case = [];
+        foreach (array_values($request->display_order) as $order => $id) {
+            $case[] = "WHEN id = $id THEN $order";
+        }
+        $case = implode(' ', $case);
+        AdmissionTestType::whereIn('id', $request->display_order)
+            ->update(['display_order' => DB::raw("(CASE $case ELSE display_order END)")]);
+
+        return [
+            'success' => 'The display order update success!',
+            'display_order' => AdmissionTestType::orderBy('display_order')
+                ->get('id')
+                ->pluck('id')
+                ->toArray(),
+        ];
     }
 }
