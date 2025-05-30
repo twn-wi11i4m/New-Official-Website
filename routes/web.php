@@ -53,8 +53,8 @@ Route::any('logout', [UserController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
     Route::singleton('profile', UserController::class)
         ->except('edit');
-    Route::get('profile/synced-to-stripe', [UserController::class, 'syncedToStripe'])
-        ->name('profile.synced-to-stripe');
+    Route::get('profile/created-stripe-user', [UserController::class, 'createdStripeUser'])
+        ->name('profile.created-stripe-user');
     Route::get('contacts/{contact}/send-verify-code', [ContactController::class, 'sendVerifyCode'])
         ->name('contacts.send-verify-code')
         ->whereNumber('contact');
@@ -129,8 +129,10 @@ Route::middleware('auth')->group(function () {
                         ->whereNumber(['product', 'price'])
                         ->names('products.prices');
                     Route::resource('types', AdmissionTestTypeController::class)
-                        ->except(['show', 'destroy'])
-                        ->parameters(['types' => 'admission_test_type']);
+                        ->whereNumber('type')
+                        ->except(['show', 'destroy']);
+                    Route::match(['put', 'patch'], 'types/display-order', [AdmissionTestTypeController::class, 'displayOrder'])
+                        ->name('types.display-order.update');
                 }
             );
             Route::resource('admission-tests', AdminAdmissionTestController::class)

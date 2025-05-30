@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Jobs\Stripe\Customers\CreateUser;
+use App\Library\Stripe\Concerns\Models\HasStripeCustomer;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +18,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, HasRoles, Notifiable, Sortable;
+    use HasApiTokens, HasFactory, HasRoles, HasStripeCustomer, Notifiable, Sortable;
 
     protected $fillable = [
         'username',
@@ -28,7 +30,6 @@ class User extends Authenticatable
         'passport_type_id',
         'passport_number',
         'birthday',
-        'stripe_id',
         'synced_to_stripe',
     ];
 
@@ -52,6 +53,11 @@ class User extends Authenticatable
      */
     protected static function booted(): void
     {
+        static::created(
+            function (User $user) {
+                CreateUser::dispatch($user->id);
+            }
+        );
         static::updating(
             function (User $user) {
                 if ($user->isDirty(['family_name', 'middle_name', 'given_name'])) {
@@ -61,7 +67,7 @@ class User extends Authenticatable
         );
     }
 
-    protected function name(): Attribute
+    protected function adornedName(): Attribute
     {
         $member = $this->member;
 
@@ -90,6 +96,34 @@ class User extends Authenticatable
                 return implode(' ', $name);
             }
         );
+    }
+
+    protected function preferredName(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                $name = [
+                    '1' => $attributes['given_name'],
+                    '3' => $attributes['family_name'],
+                ];
+                if ($attributes['middle_name'] != '') {
+                    $name['2'] = $attributes['middle_name'];
+                }
+                ksort($name);
+
+                return implode(' ', $name);
+            }
+        );
+    }
+
+    protected function stripeName(): string
+    {
+        return $this->preferredName;
+    }
+
+    protected function stripeEmail(): ?string
+    {
+        return $this->defaultEmail;
     }
 
     public function gender(): BelongsTo
