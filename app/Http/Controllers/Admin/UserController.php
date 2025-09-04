@@ -17,14 +17,19 @@ use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Inertia\EncryptHistoryMiddleware;
+use Inertia\Inertia;
 
 class UserController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
         return [
-            (new Middleware('permission:View:User'))->only(['index', 'show']),
-            (new Middleware('permission:Edit:User'))->only(['update', 'resetPassword']),
+            (new Middleware(
+                ['permission:View:User', EncryptHistoryMiddleware::class])
+            )->only(['index', 'show']),
+            (new Middleware('permission:Edit:User'))
+                ->only(['update', 'resetPassword']),
         ];
     }
 
@@ -32,7 +37,11 @@ class UserController extends Controller implements HasMiddleware
     {
         $isSearch = false;
         $append = [];
-        $users = new User;
+        $users = User::with([
+            'lastLoginLog' => function ($query) {
+                $query->select(['id', 'user_id', 'created_at']);
+            },
+        ]);
         if ($request->family_name) {
             $append['family_name'] = $request->family_name;
             $isSearch = true;
@@ -84,6 +93,18 @@ class UserController extends Controller implements HasMiddleware
             );
         }
         $users = $users->sortable('id')->paginate();
+        $users->append('adorned_name');
+        $users->makeHidden([
+            'username', 'synced_to_stripe',
+            'family_name', 'middle_name', 'given_name',
+            'passport_type_id', 'passport_number',
+            'birthday', 'member',
+        ]);
+        foreach ($users as $user) {
+            if ($user->lastLoginLog) {
+                $user->lastLoginLog->makeHidden(['id', 'user_id']);
+            }
+        }
         $passportTypes = PassportType::get(['id', 'name'])
             ->pluck('name', 'id')
             ->toArray();
@@ -91,7 +112,7 @@ class UserController extends Controller implements HasMiddleware
             ->pluck('name', 'id')
             ->toArray();
 
-        return view('admin.users.index')
+        return Inertia::render('Admin/Users/Index')
             ->with('isSearch', $isSearch)
             ->with('append', $append)
             ->with('passportTypes', $passportTypes)
@@ -102,7 +123,19 @@ class UserController extends Controller implements HasMiddleware
 
     public function show(User $user)
     {
-        return view('admin.users.show')
+        $user->load([
+            'emails.lastVerification' => function ($query) {
+                $query->select(['contact_id', 'verified_at', 'expired_at']);
+            }, 'mobiles.lastVerification' => function ($query) {
+                $query->select(['contact_id', 'verified_at', 'expired_at']);
+            },
+        ]);
+        $user->emails->append('is_verified');
+        $user->emails->makeHidden(['user_id', 'type', 'created_at', 'lastVerification']);
+        $user->mobiles->append('is_verified');
+        $user->mobiles->makeHidden(['user_id', 'type', 'created_at', 'lastVerification']);
+
+        return Inertia::render('Admin/Users/Show')
             ->with('user', $user)
             ->with(
                 'genders', Gender::all()

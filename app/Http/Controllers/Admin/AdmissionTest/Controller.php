@@ -17,12 +17,15 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Inertia\EncryptHistoryMiddleware;
+use Inertia\Inertia;
 
 class Controller extends BaseController implements HasMiddleware
 {
     public static function middleware(): array
     {
         return [
+            (new Middleware(EncryptHistoryMiddleware::class))->only('show'),
             (new Middleware(
                 function (Request $request, Closure $next) {
                     if (
@@ -39,7 +42,7 @@ class Controller extends BaseController implements HasMiddleware
                     $test = $request->route('admission_test');
                     if (
                         $request->user()->can('Edit:Admission Test') || (
-                            $test->inTestingTimeRange() &&
+                            $test->inTestingTimeRange &&
                             in_array($request->user()->id, $test->proctors->pluck('id')->toArray())
                         )
                     ) {
@@ -59,9 +62,19 @@ class Controller extends BaseController implements HasMiddleware
         } else {
             $tests = $request->user()->proctorTests();
         }
-        $tests = $tests->sortable('testing_at')->paginate();
+        $tests = $tests->withCount('candidates')
+            ->with([
+                'location' => function ($query) {
+                    $query->select(['id', 'name']);
+                },
+            ])->sortable('testing_at')->paginate();
+        $tests->append('in_testing_time_range');
+        $tests->makeHidden(['type_id', 'expect_end_at', 'location_id', 'address_id', 'created_at', 'updated_at']);
+        foreach ($tests as $test) {
+            $test->location->makeHidden('id');
+        }
 
-        return view('admin.admission-tests.index')
+        return Inertia::render('Admin/AdmissionTests/Index')
             ->with('tests', $tests);
     }
 
@@ -81,7 +94,7 @@ class Controller extends BaseController implements HasMiddleware
             }
         }
 
-        return view('admin.admission-tests.create')
+        return Inertia::render('Admin/AdmissionTests/Create')
             ->with(
                 'types', AdmissionTestType::orderBy('display_order')
                     ->get(['id', 'name'])
@@ -143,8 +156,53 @@ class Controller extends BaseController implements HasMiddleware
                 $districts[$area->name][$district->id] = $district->name;
             }
         }
+        $admissionTest->load([
+            'proctors', 'address' => function ($query) {
+                $query->select(['id', 'district_id']);
+            }, 'candidates' => function ($query) use ($admissionTest) {
+                $query->with([
+                    'lastAttendedAdmissionTest' => function ($query) use ($admissionTest) {
+                        $query->with([
+                            'type' => function ($query) {
+                                $query->select(['id', 'interval_month']);
+                            },
+                        ])->whereNot('test_id', $admissionTest->id);
+                    }, 'passportType' => function ($query) {
+                        $query->select(['id', 'name']);
+                    },
+                ]);
+            },
+        ]);
+        $admissionTest->makeHidden(['address_id', 'created_at', 'updated_at']);
+        $admissionTest->proctors->append('adorned_name');
+        $admissionTest->proctors->makeHidden([
+            'username', 'member', 'family_name', 'middle_name', 'given_name',
+            'passport_type_id', 'passport_number', 'birthday', 'gender_id',
+            'synced_to_stripe', 'created_at', 'updated_at', 'pivot',
+        ]);
+        $admissionTest->candidates->append([
+            'adorned_name', 'has_other_same_passport_user_joined_future_test',
+            'last_attended_admission_test_of_other_same_passport_user',
+            'has_same_passport_already_qualification_of_membership',
+            'last_attended_admission_test',
+        ]);
+        $admissionTest->candidates->makeHidden([
+            'username', 'member', 'family_name', 'middle_name', 'given_name',
+            'birthday', 'gender_id', 'synced_to_stripe', 'created_at', 'updated_at',
+        ]);
+        foreach ($admissionTest->candidates as $candidate) {
+            $candidate->passportType->makeHidden('id');
+            if ($candidate->lastAttendedAdmissionTest) {
+                $candidate->lastAttendedAdmissionTest->makeHidden([
+                    'id', 'type_id', 'expect_end_at', 'address_id', 'location_id',
+                    'maximum_candidates', 'is_public', 'created_at', 'updated_at',
+                    'laravel_through_key',
+                ]);
+                $candidate->lastAttendedAdmissionTest->type->makeHidden('id');
+            }
+        }
 
-        return view('admin.admission-tests.show')
+        return Inertia::render('Admin/AdmissionTests/Show')
             ->with('test', $admissionTest)
             ->with(
                 'types', AdmissionTestType::orderBy('display_order')
@@ -154,15 +212,15 @@ class Controller extends BaseController implements HasMiddleware
             )->with(
                 'locations', Location::distinct()
                     ->has('admissionTests')
-                    ->get('name')
-                    ->pluck('name')
+                    ->get(['id', 'name'])
+                    ->pluck('name', 'id')
                     ->toArray()
             )->with('districts', $districts)
             ->with(
                 'addresses', Address::distinct()
                     ->has('admissionTests')
-                    ->get('address')
-                    ->pluck('address')
+                    ->get(['id', 'address'])
+                    ->pluck('address', 'id')
                     ->toArray()
             );
     }
@@ -232,8 +290,8 @@ class Controller extends BaseController implements HasMiddleware
         DB::beginTransaction();
         $from = [
             'testing_date' => $admissionTest->testing_at->format('Y-m-d'),
-            'testing_time' => $admissionTest->testing_at->format('H:i'),
-            'expect_end_time' => $admissionTest->expect_end_at->format('H:i'),
+            'testing_time' => $admissionTest->testing_at->format('H:i:s'),
+            'expect_end_time' => $admissionTest->expect_end_at->format('H:i:s'),
             'location' => $admissionTest->location->name,
             'address' => "{$admissionTest->address->address}, {$admissionTest->address->district->name}, {$admissionTest->address->district->area->name}",
         ];
@@ -251,8 +309,8 @@ class Controller extends BaseController implements HasMiddleware
         $admissionTest->refresh();
         $to = [
             'testing_date' => $admissionTest->testing_at->format('Y-m-d'),
-            'testing_time' => $admissionTest->testing_at->format('H:i'),
-            'expect_end_time' => $admissionTest->expect_end_at->format('H:i'),
+            'testing_time' => $admissionTest->testing_at->format('H:i:s'),
+            'expect_end_time' => $admissionTest->expect_end_at->format('H:i:s'),
             'location' => $admissionTest->location->name,
             'address' => "{$admissionTest->address->address}, {$admissionTest->address->district->name}, {$admissionTest->address->district->area->name}",
         ];
@@ -272,10 +330,12 @@ class Controller extends BaseController implements HasMiddleware
         return [
             'success' => 'The admission test update success!',
             'type_id' => $admissionTest->type_id,
-            'testing_at' => $admissionTest->testing_at->format('Y-m-d H:i'),
-            'expect_end_at' => $admissionTest->expect_end_at->format('Y-m-d H:i'),
+            'testing_at' => $admissionTest->testing_at->format('Y-m-d H:i:s'),
+            'expect_end_at' => $admissionTest->expect_end_at->format('Y-m-d H:i:s'),
+            'location_id' => $admissionTest->location_id,
             'location' => $admissionTest->location->name,
             'district_id' => $admissionTest->address->district_id,
+            'address_id' => $admissionTest->address_id,
             'address' => $admissionTest->address->address,
             'maximum_candidates' => $admissionTest->maximum_candidates,
             'is_public' => $admissionTest->is_public,

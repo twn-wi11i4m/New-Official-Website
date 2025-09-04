@@ -9,6 +9,7 @@ use App\Models\NavigationItem;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class NavigationItemController extends Controller implements HasMiddleware
 {
@@ -19,18 +20,13 @@ class NavigationItemController extends Controller implements HasMiddleware
 
     public function index()
     {
-        return view('admin.navigation-items.index')
-            ->with(
-                'items', NavigationItem::whereNull('master_id')
-                    ->orderBy('display_order')
-                    ->get()
-            );
+        return Inertia::render('Admin/NavigationItems/Index');
     }
 
     public function create()
     {
         $items = NavigationItem::orderBy('display_order')
-            ->get();
+            ->get(['id', 'master_id', 'name', 'display_order']);
         $displayOptions = array_fill_keys($items->pluck('id')->toArray(), []);
         $displayOptions[0] = [];
         foreach ($items as $item) {
@@ -42,8 +38,9 @@ class NavigationItemController extends Controller implements HasMiddleware
             }
             $displayOptions[$masterID][0] = 'top';
         }
+        $items->makeHidden('display_order');
 
-        return view('admin.navigation-items.create')
+        return Inertia::render('Admin/NavigationItems/Create')
             ->with('items', $items)
             ->with('displayOptions', $displayOptions);
     }
@@ -72,27 +69,36 @@ class NavigationItemController extends Controller implements HasMiddleware
     public function edit(NavigationItem $navigationItem)
     {
         $items = NavigationItem::orderBy('display_order')
-            ->get();
+            ->get(['id', 'master_id', 'name', 'display_order']);
         $displayOptions = array_fill_keys($items->pluck('id')->toArray(), []);
         $displayOptions[0] = [];
         foreach ($items as $item) {
-            $displayOptions[$item->master_id ?? 0][$item->display_order] = "before \"$item->name\"";
+            $displayOrder = $item->display_order;
+            if ($navigationItem->id == $item->id && $displayOrder > $navigationItem->display_order) {
+                $displayOrder--;
+            }
+            $displayOptions[$item->master_id ?? 0][$displayOrder] = "before \"$item->name\"";
         }
         foreach ($displayOptions as $masterID => $array) {
-            if (count($array)) {
-                if (
-                    $masterID == $navigationItem->master_id &&
-                    $navigationItem->display_order == max(array_keys($array))
-                ) {
-                    $displayOptions[$masterID][max(array_keys($array))] = 'latest';
-                } else {
-                    $displayOptions[$masterID][max(array_keys($array)) + 1] = 'latest';
+            if (count($array) || $masterID != $navigationItem->master_id) {
+                $index = 0;
+                if (count($array)) {
+                    $index = max(array_keys($array));
+                    if (
+                        $masterID != $navigationItem->master_id ||
+                        $navigationItem->display_order != $index
+                    ) {
+                        $index++;
+                    }
                 }
+                $displayOptions[$masterID][$index] = 'latest';
             }
             $displayOptions[$masterID][0] = 'top';
         }
+        $items->makeHidden('display_order');
+        $navigationItem->makeHidden(['created_at', 'updated_at']);
 
-        return view('admin.navigation-items.edit')
+        return Inertia::render('Admin/NavigationItems/Edit')
             ->with('item', $navigationItem)
             ->with('items', $items)
             ->with('displayOptions', $displayOptions);

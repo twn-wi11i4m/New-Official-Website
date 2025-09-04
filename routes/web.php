@@ -35,11 +35,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::view('/', 'layouts.app')->name('index');
+Route::inertia('/', 'Index')->name('index');
 Route::middleware('guest')->group(function () {
     Route::get('register', [UserController::class, 'create'])->name('register');
     Route::post('register', [UserController::class, 'store']);
-    Route::view('login', 'user.login')->name('login');
+    Route::inertia('login', 'User/Login')->name('login');
     Route::post('login', [UserController::class, 'login']);
     Route::get('forget-password', [UserController::class, 'forgetPassword'])
         ->name('forget-password');
@@ -54,8 +54,8 @@ Route::any('logout', [UserController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
     Route::singleton('profile', UserController::class)
         ->except('edit');
-    Route::get('profile/created-stripe-user', [UserController::class, 'createdStripeUser'])
-        ->name('profile.created-stripe-user');
+    Route::get('profile/created-stripe-customer', [UserController::class, 'createdStripeCustomer'])
+        ->name('profile.created-stripe-customer');
     Route::get('contacts/{contact}/send-verify-code', [ContactController::class, 'sendVerifyCode'])
         ->name('contacts.send-verify-code')
         ->whereNumber('contact');
@@ -78,7 +78,7 @@ Route::middleware('auth')->group(function () {
         ->group(function () {
             Route::middleware(IsAdministrator::class)
                 ->group(function () {
-                    Route::view('/', 'admin.index')->name('index');
+                    Route::inertia('/', 'Admin/Index')->name('index');
                     Route::match(['put', 'patch'], 'team-types/display-order', [TeamTypeController::class, 'displayOrder'])
                         ->name('team-types.display-order.update');
                     Route::resource('team-types', TeamTypeController::class)

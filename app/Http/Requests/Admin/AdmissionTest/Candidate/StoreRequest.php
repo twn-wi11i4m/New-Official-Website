@@ -53,7 +53,7 @@ class StoreRequest extends FormRequest
                             'user_id',
                             'The selected user id has already member.'
                         );
-                    } elseif ($this->user->hasQualificationOfMembership()) {
+                    } elseif ($this->user->hasQualificationOfMembership) {
                         $validator->errors()->add(
                             'user_id',
                             'The selected user id has already qualification for membership.'
@@ -73,23 +73,22 @@ class StoreRequest extends FormRequest
                             'user_id',
                             'The selected user id have no scheduled other admission test after than now.'
                         );
-                    } elseif ($user->hasSamePassportAlreadyQualificationOfMembership()) {
+                    } elseif ($user->hasSamePassportAlreadyQualificationOfMembership) {
                         $validator->errors()->add(
                             'user_id',
                             'The passport of selected user id has already been qualification for membership.'
                         );
-                    } elseif ($user->hasOtherSamePassportUserTested()) {
+                    } elseif ($user->lastAttendedAdmissionTestOfOtherSamePassportUser) {
                         $validator->errors()->add(
                             'user_id',
                             'The selected user id has other same passport user account tested.'
                         );
                     } elseif (
-                        $user->lastAdmissionTest &&
-                        $user->hasTestedWithinDateRange(
-                            $admissionTest->testing_at->subMonths(
+                        $user->lastAttendedAdmissionTest &&
+                        $user->lastAttendedAdmissionTest->testing_at
+                            ->addMonths(
                                 $user->lastAdmissionTest->type->interval_month
-                            ), $now
-                        )
+                            )->endOfDay() >= $now
                     ) {
                         $validator->errors()->add(
                             'user_id',
