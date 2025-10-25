@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Kyslik\ColumnSortable\Sortable;
 use Laravel\Sanctum\HasApiTokens;
@@ -184,13 +185,35 @@ class User extends Authenticatable
         );
     }
 
+    public function isActiveMember(): Attribute
+    {
+        $user = $this;
+
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) use ($user) {
+                return (bool) $user->member && $user->member->is_active;
+            }
+        );
+    }
+
+    public function hasPassedAdmissionTest(): Attribute
+    {
+        $user = $this;
+
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) use ($user) {
+                return $user->admissionTests()->where('is_pass', true)->exists();
+            }
+        );
+    }
+
     public function hasQualificationOfMembership(): Attribute
     {
         $user = $this;
 
         return Attribute::make(
             get: function (mixed $value, array $attributes) use ($user) {
-                return $user->member || $user->hasPassedAdmissionTest();
+                return $user->member || $user->hasPassedAdmissionTest;
             }
         );
     }
@@ -308,11 +331,6 @@ class User extends Authenticatable
         return $this->hasOne(Member::class);
     }
 
-    public function isActiveMember()
-    {
-        return (bool) $this->member && $this->member->is_active;
-    }
-
     public function proctorTests()
     {
         return $this->belongsToMany(AdmissionTest::class, AdmissionTestHasProctor::class, 'user_id', 'test_id');
@@ -342,8 +360,40 @@ class User extends Authenticatable
         return $this->lastAdmissionTest()->where('is_present', true);
     }
 
-    public function hasPassedAdmissionTest()
+    public function admissionTestOrders()
     {
-        return $this->admissionTests()->where('is_pass', true)->exists();
+        return $this->hasMany(AdmissionTestOrder::class);
+    }
+
+    public function hasUnusedQuotaAdmissionTestOrder()
+    {
+        $orderTable = (new AdmissionTestOrder)->getTable();
+        $return = $this->hasOne(AdmissionTestOrder::class)
+            ->where('status', 'succeeded')
+            ->whereHas(
+                'attendedTests', null, '<',
+                DB::raw("$orderTable.quota")
+            );
+        $quotaValidityMonths = config('app.admissionTestQuotaValidityMonths');
+        if ($quotaValidityMonths) {
+            $return->leftJoinRelation('attendedTests as attendedTests.type as type')
+                ->where(
+                    DB::raw("
+                        if(
+                            attendedTests.testing_at IS NOT NULL,
+                            DATE_ADD(
+                                attendedTests.testing_at,
+                                INTERVAL type.interval_month + $quotaValidityMonths MONTH
+                            ),
+                            DATE_ADD(
+                                $orderTable.created_at,
+                                INTERVAL $quotaValidityMonths MONTH
+                            )
+                        )
+                    "), '>=', now()
+                )->select(["$orderTable.*"]);
+        }
+
+        return $return;
     }
 }
