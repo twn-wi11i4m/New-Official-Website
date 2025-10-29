@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Admin\AdmissionTest\Orders;
 
-use App\Jobs\Orders\RemoveExpiredOrderReservedAdmissionTest;
+use App\Jobs\Orders\AdmissionTestOrderExpiredHandle;
 use App\Models\AdmissionTest;
 use App\Models\AdmissionTestOrder;
 use App\Models\AdmissionTestType;
@@ -11,7 +11,9 @@ use App\Models\Member;
 use App\Models\ModulePermission;
 use App\Models\User;
 use App\Models\UserHasContact;
+use App\Notifications\AdmissionTest\Admin\AssignAdmissionTest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -107,12 +109,15 @@ class StoreTest extends TestCase
         $response->assertInvalid(['user_id' => 'The selected user id is invalid.']);
     }
 
-    public function test_user_id_of_user_have_no_any_default_contact()
+    public function test_with_test_id_and_user_id_of_user_have_no_any_default_contact()
     {
+        $test = AdmissionTest::factory()->create();
+        $data = $this->happyCase;
+        $data['test_id'] = $test->id;
         UserHasContact::first()->delete();
         $response = $this->actingAs($this->user)->postJson(
             route('admin.admission-test.orders.store'),
-            $this->happyCase
+            $data
         );
         $response->assertInvalid(['user_id' => 'The selected user must at least has one default contact.']);
     }
@@ -608,7 +613,7 @@ class StoreTest extends TestCase
         );
         $response->assertRedirectToRoute('admin.index');
         $this->assertEquals($data['expired_at'], AdmissionTestOrder::first()->expired_at->format('Y-m-d H:i'));
-        Queue::assertNothingPushed();
+        Queue::assertPushed(AdmissionTestOrderExpiredHandle::class);
     }
 
     public function test_happy_case_when_status_is_succeeded_and_without_expired_at_and_test_and_has_unused_quota_order_without_validity_months_config()
@@ -677,12 +682,12 @@ class StoreTest extends TestCase
         $response->assertRedirectToRoute('admin.index');
         $order = AdmissionTestOrder::first();
         $this->assertEquals(1, $test->candidates()->where('order_id', $order->id)->count());
-        Queue::assertPushed(RemoveExpiredOrderReservedAdmissionTest::class);
-
+        Queue::assertPushed(AdmissionTestOrderExpiredHandle::class);
     }
 
     public function test_happy_case_when_status_is_succeeded_and_without_expired_at_with_test()
     {
+        Notification::fake();
         Queue::fake();
         $data = $this->happyCase;
         $test = AdmissionTest::factory()->create();
@@ -694,10 +699,14 @@ class StoreTest extends TestCase
         $response->assertRedirectToRoute('admin.index');
         $this->assertEquals(1, $test->candidates()->where('order_id', AdmissionTestOrder::first()->id)->count());
         Queue::assertNothingPushed();
+        Notification::assertSentTo(
+            [$this->user], AssignAdmissionTest::class
+        );
     }
 
     public function test_happy_case_when_status_is_succeeded_with_expired_at_and_test()
     {
+        Notification::fake();
         Queue::fake();
         $data = $this->happyCase;
         $data['expired_at'] = now()->addMinutes(5)->format('Y-m-d H:i');
@@ -712,5 +721,8 @@ class StoreTest extends TestCase
         $this->assertEquals(now()->format('Y-m-d H:i'), $order->expired_at->format('Y-m-d H:i'));
         $this->assertEquals(1, $test->candidates()->count());
         Queue::assertNothingPushed();
+        Notification::assertSentTo(
+            [$this->user], AssignAdmissionTest::class
+        );
     }
 }
