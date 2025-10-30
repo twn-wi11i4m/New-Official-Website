@@ -9,6 +9,7 @@ use App\Models\AdmissionTestType;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class TypeController extends Controller implements HasMiddleware
 {
@@ -19,26 +20,26 @@ class TypeController extends Controller implements HasMiddleware
 
     public function index()
     {
-        return view('admin.admission-test.types.index')
+        return Inertia::render('Admin/AdmissionTest/Types/Index')
             ->with('types', AdmissionTestType::orderBy('display_order')->get());
     }
 
     public function create()
     {
-        $types = AdmissionTestType::orderBy('display_order')
+        $displayOptions = AdmissionTestType::orderBy('display_order')
             ->get(['name', 'display_order'])
             ->pluck('name', 'display_order')
             ->toArray();
-        foreach ($types as $displayOrder => $name) {
+        foreach ($displayOptions as $displayOrder => $name) {
             $types[$displayOrder] = "before \"$name\"";
         }
-        if (count($types)) {
-            $types[max(array_keys($types)) + 1] = 'latest';
+        if (count($displayOptions)) {
+            $displayOptions[max(array_keys($types)) + 1] = 'latest';
         }
-        $types[0] = 'top';
+        $displayOptions[0] = 'top';
 
-        return view('admin.admission-test.types.create')
-            ->with('types', $types);
+        return Inertia::render('Admin/AdmissionTest/Types/Create')
+            ->with('displayOptions', $displayOptions);
     }
 
     public function store(FormRequest $request)
@@ -60,22 +61,28 @@ class TypeController extends Controller implements HasMiddleware
     public function edit(AdmissionTestType $type)
     {
         $types = AdmissionTestType::orderBy('display_order')
-            ->get(['name', 'display_order'])
-            ->pluck('name', 'display_order')
-            ->toArray();
-        foreach ($types as $displayOrder => $name) {
-            $types[$displayOrder] = "before \"$name\"";
+            ->get(['name', 'display_order']);
+        $displayOptions = [];
+        foreach ($types as $thisType) {
+            $displayOrder = $thisType->display_order;
+            if ($displayOrder > $type->display_order) {
+                $displayOrder--;
+            }
+            $displayOptions[$displayOrder] = "before \"{$thisType->name}\"";
         }
-        if ($type->display_order == max(array_keys($types))) {
-            $types[max(array_keys($types))] = 'latest';
-        } else {
-            $types[max(array_keys($types)) + 1] = 'latest';
+        if (count($types) > 1) {
+            $index = max(array_keys($displayOptions));
+            if ($index != $types->max('display_order')) {
+                $index++;
+            }
+            $displayOptions[$index] = 'latest';
         }
-        $types[0] = 'top';
+        $displayOptions[0] = 'top';
+        $type->makeHidden(['created_at', 'updated_at']);
 
-        return view('admin.admission-test.types.edit')
+        return Inertia::render('Admin/AdmissionTest/Types/Edit')
             ->with('type', $type)
-            ->with('types', $types);
+            ->with('displayOptions', $displayOptions);
     }
 
     public function update(FormRequest $request, AdmissionTestType $type)

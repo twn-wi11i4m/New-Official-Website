@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Inertia\EncryptHistoryMiddleware;
+use Inertia\Inertia;
 
 class CandidateController extends Controller implements HasMiddleware
 {
@@ -23,9 +25,8 @@ class CandidateController extends Controller implements HasMiddleware
             (new Middleware(
                 function (Request $request, Closure $next) {
                     $user = $request->user();
-                    $now = now();
                     $admissionTest = $request->route('admission_test');
-                    $errorReturn = redirect()->back(302, [], route('admission-tests.index'));
+                    $errorReturn = redirect()->route('admission-tests.index');
                     if (! $request->route('admission_test')->is_public) {
                         return $errorReturn->withErrors(['message' => 'The admission test is private.']);
                     }
@@ -33,29 +34,29 @@ class CandidateController extends Controller implements HasMiddleware
                         return $errorReturn->withErrors(['message' => 'We are creating you customer account on stripe, please try again in a few minutes.']);
                     }
                     if ($user->futureAdmissionTest && $user->futureAdmissionTest->id == $admissionTest->id) {
-                        return $errorReturn->withErrors(['message' => 'You has already schedule this admission test.']);
+                        return redirect()->route('admission-tests.candidates.show', ['admission_test' => $admissionTest])
+                            ->withErrors(['message' => 'You has already schedule this admission test.']);
                     }
-                    if ($user->isActiveMember()) {
+                    if ($user->isActiveMember) {
                         return $errorReturn->withErrors(['message' => 'You has already been member.']);
                     }
-                    if ($user->hasQualificationOfMembership()) {
+                    if ($user->hasQualificationOfMembership) {
                         return $errorReturn->withErrors(['message' => 'You has already been qualification for membership.']);
                     }
-                    if ($user->hasSamePassportAlreadyQualificationOfMembership()) {
+                    if ($user->hasSamePassportAlreadyQualificationOfMembership) {
                         return $errorReturn->withErrors(['message' => 'Your passport has already been qualification for membership.']);
                     }
-                    if ($user->hasOtherSamePassportUserTested()) {
+                    if ($user->lastAttendedAdmissionTestOfOtherSamePassportUser) {
                         return $errorReturn->withErrors(['message' => 'You other same passport user account tested.']);
                     }
                     if (
-                        $user->lastAdmissionTest &&
-                        $user->hasTestedWithinDateRange(
-                            $admissionTest->testing_at->subMonths(
-                                $user->lastAdmissionTest->type->interval_month
-                            ), $now
-                        )
+                        $user->lastAttendedAdmissionTest &&
+                        $user->lastAttendedAdmissionTest->testing_at
+                            ->addMonths(
+                                $user->lastAttendedAdmissionTest->type->interval_month
+                            )->endOfDay() >= $admissionTest->testing_at
                     ) {
-                        return $errorReturn->withErrors(['message' => "You has admission test record within {$user->lastAdmissionTest->type->interval_month} months(count from testing at of this test sub {$user->lastAdmissionTest->type->interval_month} months to now)."]);
+                        return $errorReturn->withErrors(['message' => "You has admission test record within {$user->lastAttendedAdmissionTest->type->interval_month} months(count from testing at of this test sub {$user->lastAttendedAdmissionTest->type->interval_month} months to now)."]);
                     }
                     if ($admissionTest->testing_at <= now()->addDays(2)->endOfDay()) {
                         return $errorReturn->withErrors(['message' => 'Cannot register after than before testing date two days.']);
@@ -68,57 +69,80 @@ class CandidateController extends Controller implements HasMiddleware
                 }
             ))->except('show'),
             (new Middleware(
-                function (Request $request, Closure $next) {
-                    $user = $request->user();
-                    $admissionTest = $request->route('admission_test');
-                    if (! in_array($user->id, $admissionTest->candidates->pluck('id')->toArray())) {
-                        $redirect = redirect()->back(302, [], route('admission-tests.index'));
-                        if (! $admissionTest->is_public) {
-                            return $redirect->withErrors(['message' => 'You have no register this admission test and this test is private, please register other admission test.']);
-                        }
-                        if ($user->isActiveMember()) {
-                            return $redirect->withErrors(['message' => 'You have no register this admission test and you has already been member.']);
-                        }
-                        if ($user->hasQualificationOfMembership()) {
-                            return $redirect->withErrors(['message' => 'You have no register this admission test and you has already been qualification for membership.']);
-                        }
-                        if ($user->hasSamePassportAlreadyQualificationOfMembership()) {
-                            return $redirect->withErrors(['message' => 'You have no register this admission test and your passport has already been qualification for membership.']);
-                        }
-                        if ($user->hasOtherSamePassportUserTested()) {
-                            return $redirect->withErrors(['message' => 'You have no register this admission test and your passport has other same passport user account tested.']);
-                        }
-                        if (
-                            $user->lastAdmissionTest &&
-                            $user->hasTestedWithinDateRange(
-                                $admissionTest->testing_at->subMonths(
-                                    $user->lastAdmissionTest->type->interval_month
-                                ), now()
-                            )
-                        ) {
-                            return $redirect->withErrors(['message' => "You have no register this admission test and You has admission test record within {$user->lastAdmissionTest->type->interval_month} months(count from testing at of this test sub {$user->lastAdmissionTest->type->interval_month} months to now)."]);
-                        }
-                        if ($admissionTest->testing_at <= now()->addDays(2)->endOfDay()) {
-                            return $redirect->withErrors(['message' => 'You have no register this admission test and cannot register after than before testing date two days, please register other admission test.']);
-                        }
-                        if ($admissionTest->candidates()->count() < $admissionTest->maximum_candidates) {
-                            return redirect()->back(302, [], route('admission-tests.candidates.create', ['admission_test' => $admissionTest]))
-                                ->withErrors(['message' => 'You have no register this admission test, please register first.']);
+                [
+                    EncryptHistoryMiddleware::class,
+                    function (Request $request, Closure $next) {
+                        $user = $request->user();
+                        $admissionTest = $request->route('admission_test');
+                        if (! in_array($user->id, $admissionTest->candidates->pluck('id')->toArray())) {
+                            $redirect = redirect()->route('admission-tests.index');
+                            if (! $admissionTest->is_public) {
+                                return $redirect->withErrors(['message' => 'You have no register this admission test and this test is private, please register other admission test.']);
+                            }
+                            if ($user->isActiveMember) {
+                                return $redirect->withErrors(['message' => 'You have no register this admission test and you has already been member.']);
+                            }
+                            if ($user->hasQualificationOfMembership) {
+                                return $redirect->withErrors(['message' => 'You have no register this admission test and you has already been qualification for membership.']);
+                            }
+                            if ($user->hasSamePassportAlreadyQualificationOfMembership) {
+                                return $redirect->withErrors(['message' => 'You have no register this admission test and your passport has already been qualification for membership.']);
+                            }
+                            if ($user->lastAttendedAdmissionTestOfOtherSamePassportUser) {
+                                return $redirect->withErrors(['message' => 'You have no register this admission test and your passport has other same passport user account tested.']);
+                            }
+                            if (
+                                $user->lastAttendedAdmissionTest &&
+                                $user->lastAttendedAdmissionTest->testing_at
+                                    ->addMonths(
+                                        $user->lastAttendedAdmissionTest->type->interval_month
+                                    )->endOfDay() >= $admissionTest->testing_at
+                            ) {
+                                return $redirect->withErrors(['message' => "You have no register this admission test and You has admission test record within {$user->lastAttendedAdmissionTest->type->interval_month} months(count from testing at of this test sub {$user->lastAttendedAdmissionTest->type->interval_month} months to now)."]);
+                            }
+                            if ($admissionTest->testing_at <= now()->addDays(2)->endOfDay()) {
+                                return $redirect->withErrors(['message' => 'You have no register this admission test and cannot register after than before testing date two days, please register other admission test.']);
+                            }
+                            if ($admissionTest->candidates()->count() < $admissionTest->maximum_candidates) {
+                                return redirect()->route(
+                                    'admission-tests.candidates.create',
+                                    ['admission_test' => $admissionTest]
+                                )->withErrors(['message' => 'You have no register this admission test, please register first.']);
+                            }
+
+                            return $redirect->withErrors(['message' => 'You have no register this admission test and this test is fulled, please register other admission test.']);
                         }
 
-                        return $redirect->withErrors(['message' => 'You have no register this admission test and this test is fulled, please register other admission test.']);
-                    }
-
-                    return $next($request);
-                }
+                        return $next($request);
+                    },
+                ]
             ))->only('show'),
         ];
     }
 
-    public function create(AdmissionTest $admissionTest)
+    public function create(Request $request, AdmissionTest $admissionTest)
     {
-        return view('admission-tests.confirmation')
-            ->with('test', $admissionTest);
+        $user = [
+            'future_admission_test' => $request->user()->futureAdmissionTest ? [
+                'id' => $request->user()->futureAdmissionTest->id,
+            ] : null,
+            'created_stripe_customer' => (bool) $request->user()->stripe,
+            'default_email' => $request->user()->defaultEmail ? [
+                'contact' => $request->user()->defaultEmail->contact,
+            ] : null,
+        ];
+        $admissionTest->load(['address.district.area', 'location']);
+        $admissionTest->address->district->area
+            ->makeHidden(['id', 'display_order', 'created_at', 'updated_at']);
+        $admissionTest->address->district
+            ->makeHidden(['id', 'area_id', 'display_order', 'created_at', 'updated_at']);
+        $admissionTest->address->makeHidden(['id', 'district_id', 'created_at', 'updated_at']);
+        $admissionTest->location->makeHidden(['id', 'created_at', 'updated_at']);
+        $admissionTest->makeHidden(['type_id', 'address_id', 'location_id', 'expect_end_at', 'is_public', 'created_at', 'updated_at']);
+
+        return Inertia::render('AdmissionTests/Confirmation')
+            ->with('test', $admissionTest)
+            ->with('user', $user);
     }
 
     public function store(Request $request, AdmissionTest $admissionTest)
@@ -177,10 +201,31 @@ class CandidateController extends Controller implements HasMiddleware
 
     public function show(Request $request, AdmissionTest $admissionTest)
     {
-        $return = view('admission-tests.ticket')
+        $admissionTest->load(['address.district.area', 'location']);
+        $admissionTest->address->district->area
+            ->makeHidden(['id', 'display_order', 'created_at', 'updated_at']);
+        $admissionTest->address->district
+            ->makeHidden(['id', 'area_id', 'display_order', 'created_at', 'updated_at']);
+        $admissionTest->address->makeHidden(['id', 'district_id', 'created_at', 'updated_at']);
+        $admissionTest->location->makeHidden(['id', 'created_at', 'updated_at']);
+        $admissionTest->makeHidden(['id', 'type_id', 'address_id', 'location_id', 'is_public', 'created_at', 'updated_at', 'candidates']);
+        $candidate = $admissionTest->candidates()
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $return = Inertia::render('AdmissionTests/Ticket')
             ->with('test', $admissionTest);
         if ($admissionTest->expect_end_at >= now()->subHour()) {
             $return = $return->with('qrCode', $this->qrCode($admissionTest, $request->user()));
+        } else {
+            $return = $return->with(
+                'candidate', [
+                    'pivot' => [
+                        'is_present' => $candidate->pivot->is_present,
+                        'is_pass' => $candidate->pivot->is_pass,
+                    ],
+                ]
+            );
         }
 
         return $return;

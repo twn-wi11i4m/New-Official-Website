@@ -11,6 +11,7 @@ use App\Models\TeamType;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class TeamController extends Controller implements HasMiddleware
 {
@@ -21,17 +22,22 @@ class TeamController extends Controller implements HasMiddleware
 
     public function index()
     {
-        return view('admin.teams.index')
-            ->with(
-                'types', TeamType::with([
-                    'teams' => function ($query) {
-                        $query->orderBy('display_order')
-                            ->orderBy('id');
-                    },
-                ])->orderBy('display_order')
-                    ->orderBy('id')
-                    ->get()
-            );
+        $types = TeamType::with([
+            'teams' => function ($query) {
+                $query->select(['id', 'name', 'type_id'])
+                    ->orderBy('display_order')
+                    ->orderBy('id');
+            },
+        ])->select(['id', 'name', 'title'])
+            ->orderBy('display_order')
+            ->orderBy('id')
+            ->get();
+        foreach ($types as $type) {
+            $type->teams->makeHidden('type_id');
+        }
+
+        return Inertia::render('Admin/Teams/Index')
+            ->with('types', $types);
     }
 
     public function create()
@@ -56,7 +62,7 @@ class TeamController extends Controller implements HasMiddleware
         $types = $types->pluck('name', 'id')
             ->toArray();
 
-        return view('admin.teams.create')
+        return Inertia::render('Admin/Teams/Create')
             ->with('types', $types)
             ->with('displayOptions', $displayOptions);
     }
@@ -79,19 +85,26 @@ class TeamController extends Controller implements HasMiddleware
 
     public function show(Team $team)
     {
-        return view('admin.teams.show')
-            ->with(
-                'team', $team->load([
-                    'roles' => function ($query) {
-                        $query->orderBy('pivot_display_order')
-                            ->orderBy('id');
-                    },
-                ])
-            );
+        $team->load([
+            'type' => function ($query) {
+                $query->select(['id', 'name', 'title']);
+            },
+            'roles' => function ($query) {
+                $query->orderBy('pivot_display_order')
+                    ->orderBy('id');
+            },
+        ]);
+        $team->makeHidden(['type_id', 'display_order', 'created_at', 'updated_at']);
+        $team->type->makeHidden('id');
+        $team->roles->makeHidden(['pivot', 'created_at', 'updated_at']);
+
+        return Inertia::render('Admin/Teams/Show')
+            ->with('team', $team);
     }
 
     public function edit(Team $team)
     {
+        $team->makeHidden(['created_at', 'updated_at']);
         $types = TeamType::with([
             'teams' => function ($query) {
                 $query->orderBy('display_order')
@@ -104,29 +117,31 @@ class TeamController extends Controller implements HasMiddleware
         foreach ($types as $type) {
             $displayOptions[$type->id] = [];
             foreach ($type->teams as $thisTeam) {
+                $displayOrder = $thisTeam->display_order;
+                if ($type->id == $team->type_id && $displayOrder > $team->display_order) {
+                    $displayOrder--;
+                }
+                $displayOptions[$type->id][$displayOrder] = "before \"$thisTeam->name\"";
+            }
+            if (
+                $type->teams->count() > 1 ||
+                $type->id != $team->type_id
+            ) {
+                $index = max(array_keys($displayOptions[$type->id]));
                 if (
                     $type->id != $team->type_id ||
-                    $thisTeam->id != $team->id
+                    $index != $type->teams->max('display_order')
                 ) {
-                    $displayOptions[$type->id][$thisTeam->display_order] = "before \"$team->name\"";
+                    $index++;
                 }
-            }
-            if (count($displayOptions[$type->id])) {
-                if (
-                    $type->id == $team->type_id &&
-                    $team->display_order == max(array_keys($displayOptions[$type->id]))
-                ) {
-                    $displayOptions[$type->id][max(array_keys($displayOptions[$type->id]))] = 'latest';
-                } else {
-                    $displayOptions[$type->id][max(array_keys($displayOptions[$type->id])) + 1] = 'latest';
-                }
+                $displayOptions[$type->id][$index] = 'latest';
             }
             $displayOptions[$type->id][0] = 'top';
         }
         $types = $types->pluck('name', 'id')
             ->toArray();
 
-        return view('admin.teams.edit')
+        return Inertia::render('Admin/Teams/Edit')
             ->with('types', $types)
             ->with('displayOptions', $displayOptions)
             ->with('team', $team);
@@ -141,7 +156,7 @@ class TeamController extends Controller implements HasMiddleware
                 ->decrement('display_order');
             $request->display_order -= 1;
         } elseif (
-            $team->type_id > $request->type_id ||
+            $team->type_id != $request->type_id ||
             $team->display_order > $request->display_order
         ) {
             Team::where('type_id', $request->type_id)
@@ -187,6 +202,7 @@ class TeamController extends Controller implements HasMiddleware
                 ->delete();
         }
         $team->roles()->detach();
+        $team->delete();
         DB::commit();
 
         return ['success' => "The team of $team->name delete success!"];

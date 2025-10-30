@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Jobs\Stripe\Customers\CreateUser;
 use App\Library\Stripe\Concerns\Models\HasStripeCustomer;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Kyslik\ColumnSortable\Sortable;
 use Laravel\Sanctum\HasApiTokens;
@@ -46,6 +48,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'password' => 'hashed',
+        'birthday' => 'date',
     ];
 
     /**
@@ -116,6 +119,105 @@ class User extends Authenticatable
         );
     }
 
+    protected function age(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                return Carbon::create($attributes['birthday'])
+                    ->diffInMonths(now()->startOfDay()) / 12;
+            }
+        );
+    }
+
+    public function hasOtherSamePassportUserJoinedFutureTest(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                return User::whereNot('id', $this->id)
+                    ->where('passport_type_id', $attributes['passport_type_id'])
+                    ->where('passport_number', $attributes['passport_number'])
+                    ->whereHas(
+                        'admissionTests', function ($query) {
+                            $query->where('testing_at', '>', now());
+                        }
+                    )->exists();
+            }
+        );
+    }
+
+    public function hasSamePassportAlreadyQualificationOfMembership(): Attribute
+    {
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) {
+                return User::where('passport_type_id', $attributes['passport_type_id'])
+                    ->where('passport_number', $attributes['passport_number'])
+                    ->where(
+                        function ($query) {
+                            $query->has('member')
+                                ->orWhereHas(
+                                    'admissionTests', function ($query) {
+                                        $query->where('is_pass', true);
+                                    }
+                                );
+                        }
+                    )->exists();
+            }
+        );
+    }
+
+    public function lastAttendedAdmissionTestOfOtherSamePassportUser(): Attribute
+    {
+        $table = $this->getTable();
+
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) use ($table) {
+                return AdmissionTest::where('testing_at', '<', now())
+                    ->whereHas(
+                        'candidates', function ($query) use ($attributes, $table) {
+                            $query->where('passport_type_id', $attributes['passport_type_id'])
+                                ->where('passport_number', $attributes['passport_number'])
+                                ->whereNot("$table.id", $attributes['id'])
+                                ->where('is_present', true);
+                        }
+                    )->orderByDesc('testing_at')
+                    ->first();
+            }
+        );
+    }
+
+    public function isActiveMember(): Attribute
+    {
+        $user = $this;
+
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) use ($user) {
+                return (bool) $user->member && $user->member->is_active;
+            }
+        );
+    }
+
+    public function hasPassedAdmissionTest(): Attribute
+    {
+        $user = $this;
+
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) use ($user) {
+                return $user->admissionTests()->where('is_pass', true)->exists();
+            }
+        );
+    }
+
+    public function hasQualificationOfMembership(): Attribute
+    {
+        $user = $this;
+
+        return Attribute::make(
+            get: function (mixed $value, array $attributes) use ($user) {
+                return $user->member || $user->hasPassedAdmissionTest;
+            }
+        );
+    }
+
     protected function stripeName(): string
     {
         return $this->preferredName;
@@ -163,7 +265,7 @@ class User extends Authenticatable
         return $this->hasMany(UserLoginLog::class);
     }
 
-    public function lastLoginLogs(): HasOne
+    public function lastLoginLog(): HasOne
     {
         return $this->hasOne(UserLoginLog::class)
             ->latest('id');
@@ -229,11 +331,6 @@ class User extends Authenticatable
         return $this->hasOne(Member::class);
     }
 
-    public function isActiveMember()
-    {
-        return (bool) $this->member && $this->member->is_active;
-    }
-
     public function proctorTests()
     {
         return $this->belongsToMany(AdmissionTest::class, AdmissionTestHasProctor::class, 'user_id', 'test_id');
@@ -258,76 +355,45 @@ class User extends Authenticatable
             ->latest('testing_at');
     }
 
-    public function hasPassedAdmissionTest()
+    public function lastAttendedAdmissionTest()
     {
-        return in_array(
-            true,
-            $this->admissionTests
-                ->pluck('pivot.is_pass')
-                ->toArray(),
-        );
+        return $this->lastAdmissionTest()->where('is_present', true);
     }
 
-    public function hasQualificationOfMembership()
+    public function admissionTestOrders()
     {
-        return $this->member || $this->hasPassedAdmissionTest();
+        return $this->hasMany(AdmissionTestOrder::class);
     }
 
-    public function hasSamePassportAlreadyQualificationOfMembership()
+    public function hasUnusedQuotaAdmissionTestOrder()
     {
-        return self::where('passport_type_id', $this->passport_type_id)
-            ->where('passport_number', $this->passport_number)
-            ->where(
-                function ($query) {
-                    $query->has('member')
-                        ->orWhereHas(
-                            'admissionTests', function ($query) {
-                                $query->where('is_pass', true);
-                            }
-                        );
-                }
-            )->exists();
-    }
-
-    public function hasOtherSamePassportUserTested(?AdmissionTest $ignore = null)
-    {
-        return self::where('passport_type_id', $this->passport_type_id)
-            ->where('passport_number', $this->passport_number)
-            ->whereNot('id', $this->id)
+        $orderTable = (new AdmissionTestOrder)->getTable();
+        $return = $this->hasOne(AdmissionTestOrder::class)
+            ->where('status', 'succeeded')
             ->whereHas(
-                'admissionTests', function ($query) use ($ignore) {
-                    $query->where('is_present', true)
-                        ->where('testing_at', '<', now());
-                    if ($ignore) {
-                        $query->whereNot('test_id', $ignore->id);
-                    }
-                }
-            )->exists();
-    }
-
-    public function hasTestedWithinDateRange($form, $to, ?AdmissionTest $ignore = null)
-    {
-        foreach ($this->admissionTests as $test) {
-            if (
-                $test->testing_at >= $form && $test->testing_at <= $to &&
-                (! $ignore || $ignore->id != $test->id)
-            ) {
-                return true;
-            }
+                'attendedTests', null, '<',
+                DB::raw("$orderTable.quota")
+            );
+        $quotaValidityMonths = config('app.admissionTestQuotaValidityMonths');
+        if ($quotaValidityMonths) {
+            $return->leftJoinRelation('attendedTests as attendedTests.type as type')
+                ->where(
+                    DB::raw("
+                        if(
+                            attendedTests.testing_at IS NOT NULL,
+                            DATE_ADD(
+                                attendedTests.testing_at,
+                                INTERVAL type.interval_month + $quotaValidityMonths MONTH
+                            ),
+                            DATE_ADD(
+                                $orderTable.created_at,
+                                INTERVAL $quotaValidityMonths MONTH
+                            )
+                        )
+                    "), '>=', now()
+                )->select(["$orderTable.*"]);
         }
 
-        return false;
-    }
-
-    public function hasOtherUserSamePassportJoinedFutureTest()
-    {
-        return User::whereNot('id', $this->id)
-            ->where('passport_type_id', $this->passport_type_id)
-            ->where('passport_number', $this->passport_number)
-            ->whereHas(
-                'admissionTests', function ($query) {
-                    $query->where('testing_at', '>', now());
-                }
-            )->exists();
+        return $return;
     }
 }

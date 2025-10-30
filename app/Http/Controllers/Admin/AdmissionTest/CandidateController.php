@@ -22,12 +22,15 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Inertia\EncryptHistoryMiddleware;
+use Inertia\Inertia;
 
 class CandidateController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
         return [
+            (new Middleware(EncryptHistoryMiddleware::class))->only(['show', 'edit']),
             (new Middleware(
                 function (Request $request, Closure $next) {
                     if (
@@ -74,7 +77,7 @@ class CandidateController extends Controller implements HasMiddleware
                             $request->user()->can('View:User') &&
                             $request->user()->can('Edit:Admission Test')
                         ) && ! (
-                            $test->inTestingTimeRange() &&
+                            $test->inTestingTimeRange &&
                             in_array($request->user()->id, $test->proctors->pluck('id')->toArray())
                         )
                     ) {
@@ -96,19 +99,22 @@ class CandidateController extends Controller implements HasMiddleware
                     $test = $request->route('admission_test');
                     if (in_array($request->pivot->is_pass, ['0', '1'])) {
                         abort(410, 'Cannot change exists result candidate present status.');
-                    } elseif ($user->hasSamePassportAlreadyQualificationOfMembership()) {
+                    } elseif ($user->hasSamePassportAlreadyQualificationOfMembership) {
                         abort(409, 'The candidate has already been qualification for membership.');
-                    } elseif ($user->hasOtherSamePassportUserTested($test)) {
+                    } elseif (
+                        $user->lastAttendedAdmissionTestOfOtherSamePassportUser &&
+                        $user->lastAttendedAdmissionTestOfOtherSamePassportUser->id != $test->id
+                    ) {
                         abort(409, 'The candidate has other same passport user account tested.');
                     } elseif (
-                        $user->lastAdmissionTest &&
-                        $user->hasTestedWithinDateRange(
-                            $test->testing_at->subMonths(
-                                $user->lastAdmissionTest->type->interval_month
-                            ), now(), $test
-                        )
+                        $user->lastAttendedAdmissionTest &&
+                        $user->lastAttendedAdmissionTest->id != $test->id &&
+                        $user->lastAttendedAdmissionTest->testing_at
+                            ->addMonths(
+                                $user->lastAttendedAdmissionTest->type->interval_month
+                            )->endOfDay() >= $test->testing_at
                     ) {
-                        abort(409, "The candidate has admission test record within {$user->lastAdmissionTest->type->interval_month} months(count from testing at of this test sub {$user->lastAdmissionTest->type->interval_month} months to now).");
+                        abort(409, "The candidate has admission test record within {$user->lastAttendedAdmissionTest->type->interval_month} months(count from testing at of this test sub {$user->lastAttendedAdmissionTest->type->interval_month} months to now).");
                     }
 
                     return $next($request);
@@ -131,7 +137,18 @@ class CandidateController extends Controller implements HasMiddleware
     public function store(StoreRequest $request, AdmissionTest $admissionTest)
     {
         DB::beginTransaction();
-        $admissionTest->candidates()->attach($request->user->id);
+        if ($request->is_free) {
+            $admissionTest->candidates()->attach($request->user->id);
+        } else {
+            $admissionTest->candidates()->attach(
+                $request->user->id,
+                [
+                    'order_id' => $request->user
+                        ->hasUnusedQuotaAdmissionTestOrder
+                        ->id,
+                ]
+            );
+        }
         switch ($request->function) {
             case 'schedule':
                 $request->user->notify(new AssignAdmissionTest($admissionTest));
@@ -150,39 +167,51 @@ class CandidateController extends Controller implements HasMiddleware
             'name' => $request->user->adornedName,
             'passport_type' => $request->user->passportType->name,
             'passport_number' => $request->user->passport_number,
-            'has_same_passport' => $request->user->hasOtherUserSamePassportJoinedFutureTest(),
-            'show_user_url' => route(
-                'admin.users.show',
-                ['user' => $request->user]
-            ),
-            'in_testing_time_range' => $admissionTest->inTestingTimeRange(),
-            'present_url' => route(
-                'admin.admission-tests.candidates.present.update',
-                [
-                    'admission_test' => $admissionTest,
-                    'candidate' => $request->user,
-                ]
-            ),
-            'result_url' => route(
-                'admin.admission-tests.candidates.result.update',
-                [
-                    'admission_test' => $admissionTest,
-                    'candidate' => $request->user,
-                ]
-            ),
-            'delete_url' => route(
-                'admin.admission-tests.candidates.destroy',
-                [
-                    'admission_test' => $admissionTest,
-                    'candidate' => $request->user,
-                ]
-            ),
+            'has_other_same_passport_user_joined_future_test' => $request->user->hasOtherSamePassportUserJoinedFutureTest,
         ];
     }
 
     public function show(Request $request, AdmissionTest $admissionTest, User $candidate)
     {
-        return view('admin.admission-tests.candidates.show')
+        $admissionTest->makeHidden([
+            'type_id', 'testing_at', 'expect_end_at',
+            'location_id', 'address_id', 'maximum_candidates',
+            'is_public', 'created_at', 'updated_at',
+        ]);
+        $candidate->load([
+            'lastAttendedAdmissionTest' => function ($query) use ($admissionTest) {
+                $query->with([
+                    'type' => function ($query) {
+                        $query->select(['id', 'interval_month']);
+                    },
+                ])->whereNot('test_id', $admissionTest->id);
+            }, 'passportType' => function ($query) {
+                $query->select(['id', 'name']);
+            }, 'gender' => function ($query) {
+                $query->select(['id', 'name']);
+            },
+        ]);
+        $candidate->append([
+            'adorned_name', 'has_other_same_passport_user_joined_future_test',
+            'last_attended_admission_test_of_other_same_passport_user',
+            'has_same_passport_already_qualification_of_membership',
+        ]);
+        $candidate->makeHidden([
+            'username', 'member', 'family_name', 'middle_name', 'given_name',
+            'gender_id', 'synced_to_stripe', 'created_at', 'updated_at',
+        ]);
+        $candidate->passportType->makeHidden('id');
+        $candidate->gender->makeHidden('id');
+        if ($candidate->lastAttendedAdmissionTest) {
+            $candidate->lastAttendedAdmissionTest->makeHidden([
+                'id', 'type_id', 'expect_end_at', 'address_id', 'location_id',
+                'maximum_candidates', 'is_public', 'created_at', 'updated_at',
+                'laravel_through_key',
+            ]);
+            $candidate->lastAttendedAdmissionTest->type->makeHidden('id');
+        }
+
+        return Inertia::render('Admin/AdmissionTests/Candidates/Show')
             ->with('test', $admissionTest)
             ->with('user', $candidate)
             ->with('isPresent', $request->pivot->is_present);
@@ -190,17 +219,22 @@ class CandidateController extends Controller implements HasMiddleware
 
     public function edit(AdmissionTest $admissionTest, User $candidate)
     {
-        return view('admin.admission-tests.candidates.edit')
-            ->with('test', $admissionTest)
+        $candidate->makeHidden(['username', 'synced_to_stripe', 'created_at', 'updated_at', 'member']);
+
+        return Inertia::render('Admin/AdmissionTests/Candidates/Edit')
             ->with('user', $candidate)
             ->with(
+                'passportTypes', PassportType::all()
+                    ->pluck('name', 'id')
+                    ->toArray()
+            )->with(
                 'genders', Gender::all()
                     ->pluck('name', 'id')
                     ->toArray()
             )->with(
-                'passportTypes', PassportType::all()
-                    ->pluck('name', 'id')
-                    ->toArray()
+                'maxBirthday', now()
+                    ->subYears(2)
+                    ->format('Y-m-d')
             );
     }
 
@@ -215,6 +249,7 @@ class CandidateController extends Controller implements HasMiddleware
             'gender_id' => $gender->id,
             'passport_type_id' => $request->passport_type_id,
             'passport_number' => $request->passport_number,
+            'birthday' => $request->birthday,
         ]);
         DB::commit();
 
@@ -256,7 +291,7 @@ class CandidateController extends Controller implements HasMiddleware
         DB::beginTransaction();
         $request->pivot->update(['is_pass' => $request->status]);
         if ($request->pivot->is_pass) {
-            $candidate->notify(new PassAdmissionTest);
+            $candidate->notify(new PassAdmissionTest($admissionTest));
         } else {
             $candidate->notify(new FailAdmissionTest($admissionTest));
         }

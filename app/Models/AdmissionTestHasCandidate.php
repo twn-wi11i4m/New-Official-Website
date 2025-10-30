@@ -12,6 +12,7 @@ class AdmissionTestHasCandidate extends Pivot
     protected $fillable = [
         'test_id',
         'user_id',
+        'order_id',
         'is_present',
         'is_pass',
     ];

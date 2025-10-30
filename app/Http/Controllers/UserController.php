@@ -21,39 +21,43 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Inertia\EncryptHistoryMiddleware;
+use Inertia\Inertia;
 
 class UserController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        return [(new Middleware(
-            function (Request $request, Closure $next) {
-                $failForgetPasswordLogsWithin24Hours = ResetPasswordLog::where('passport_type_id', $request->passport_type_id)
-                    ->where('passport_number', $request->passport_number)
-                    ->where('created_at', '>=', now()->subDay())
-                    ->where('middleware_should_count', true)
-                    ->get();
-                if ($failForgetPasswordLogsWithin24Hours->count() >= 10) {
-                    $firstInRangeResetPasswordFailedTime = $failForgetPasswordLogsWithin24Hours[0]['created_at'];
-                    abort(429, "Too many failed reset password attempts. Please try again later than $firstInRangeResetPasswordFailedTime.");
-                }
+        return [
+            (new Middleware(
+                function (Request $request, Closure $next) {
+                    $failForgetPasswordLogsWithin24Hours = ResetPasswordLog::where('passport_type_id', $request->passport_type_id)
+                        ->where('passport_number', $request->passport_number)
+                        ->where('created_at', '>=', now()->subDay())
+                        ->where('middleware_should_count', true)
+                        ->get();
+                    if ($failForgetPasswordLogsWithin24Hours->count() >= 10) {
+                        $firstInRangeResetPasswordFailedTime = $failForgetPasswordLogsWithin24Hours[0]['created_at'];
+                        abort(429, "Too many failed reset password attempts. Please try again later than $firstInRangeResetPasswordFailedTime.");
+                    }
 
-                return $next($request);
-            }
-        ))->only('resetPassword')];
+                    return $next($request);
+                }
+            ))->only('resetPassword'),
+            (new Middleware(EncryptHistoryMiddleware::class))->only('show'),
+        ];
     }
 
     public function create()
     {
-        return view('user.register')
+        return Inertia::render('User/Register')
+            ->with('title', 'Register')
             ->with(
                 'genders', Gender::all()
-                    ->pluck('name', 'id')
-                    ->toArray()
+                    ->pluck('name')
             )->with(
                 'passportTypes', PassportType::all()
                     ->pluck('name', 'id')
-                    ->toArray()
             )->with('maxBirthday', now()->subYears(2)->format('Y-m-d'));
     }
 
@@ -94,8 +98,32 @@ class UserController extends Controller implements HasMiddleware
 
     public function show(Request $request)
     {
-        return view('user.profile')
-            ->with('user', $request->user())
+        $user = $request->user();
+        $user->load([
+            'admissionTests', 'emails.lastVerification' => function ($query) {
+                $query->select(['contact_id', 'verified_at', 'expired_at']);
+            }, 'mobiles.lastVerification' => function ($query) {
+                $query->select(['contact_id', 'verified_at', 'expired_at']);
+            },
+        ]);
+        $user->emails->append('is_verified');
+        $user->mobiles->append('is_verified');
+        $user->makeHidden([
+            'roles', 'permissions', 'synced_to_stripe',
+            'created_at', 'updated_at', 'member',
+        ]);
+        $user->emails->makeHidden(['user_id', 'type', 'created_at', 'lastVerification']);
+        $user->mobiles->makeHidden(['user_id', 'type', 'created_at', 'lastVerification']);
+        $user->admissionTests->makeHidden([
+            'type_id', 'expect_end_at', 'location_id', 'address_id',
+            'is_public', 'maximum_candidates', 'pivot.test_id', 'pivot.user_id',
+        ]);
+        foreach ($user->admissionTests as $test) {
+            $test->pivot->makeHidden('user_id', 'test_id');
+        }
+
+        return Inertia::render('User/Profile')
+            ->with('user', $user)
             ->with(
                 'genders', Gender::all()
                     ->pluck('name', 'id')
@@ -130,9 +158,10 @@ class UserController extends Controller implements HasMiddleware
             $update['password'] = $request->new_password;
         }
         $user->update($update);
-        $unsetKeys = ['password', 'new_password', 'new_password_confirmation', 'gender_id'];
+        $unsetKeys = ['password', 'new_password', 'new_password_confirmation'];
         $return = array_diff_key($update, array_flip($unsetKeys));
         $return['gender'] = $request->gender;
+        $return['success'] = 'The profile update success!';
         DB::commit();
 
         return $return;
@@ -141,6 +170,7 @@ class UserController extends Controller implements HasMiddleware
     public function logout()
     {
         Auth::logout();
+        inertia()->clearHistory();
 
         return redirect()->route('index');
     }
@@ -180,7 +210,7 @@ class UserController extends Controller implements HasMiddleware
 
     public function forgetPassword()
     {
-        return view('user.forget-password')
+        return Inertia::render('User/ForgetPassword')
             ->with(
                 'passportTypes', PassportType::all()
                     ->pluck('name', 'id')
@@ -229,7 +259,7 @@ class UserController extends Controller implements HasMiddleware
         ], 422);
     }
 
-    public function createdStripeUser(Request $request)
+    public function createdStripeCustomer(Request $request)
     {
         return ['status' => (bool) $request->user()->stripe];
     }
