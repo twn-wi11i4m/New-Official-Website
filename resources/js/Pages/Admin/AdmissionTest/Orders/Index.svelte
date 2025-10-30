@@ -6,7 +6,6 @@
     import Pagination from '@/Pages/Components/Pagination.svelte';
 
     let { auth, orders, append } = $props();
-    console.log(orders);
 </script>
 
 <svelte:head>
@@ -68,7 +67,7 @@
                 <thead>
                     <tr>
                         <th scope="col">#</th>
-                        <th scope="col">Name</th>
+                        <th scope="col">Payer</th>
                         <th scope="col">Price</th>
                         <th scope="col">Used/Quota</th>
                         <th scope="col">Status</th>
@@ -103,8 +102,16 @@
                             </td>
                             <td>{row.price}</td>
                             <td>{row.tests_count}/{row.quota}</td>
-                            <td>{row.status}</td>
+                            <td>{row.status.ucfirst()}</td>
                             <td>{formatToDatetime(row.created_at)}</td>
+                            <td>
+                                <Link class="btn btn-primary" href={
+                                    route(
+                                        'admin.admission-test.orders.show',
+                                        {order: row.id}
+                                    )
+                                }>Show</Link>
+                            </td>
                         </tr>
                     {/each}
                 </tbody>
