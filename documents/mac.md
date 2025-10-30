@@ -1,8 +1,8 @@
 ## Software
 
--   VSCode
--   Docker
--   Sourcetree (optional)
+- VSCode
+- Docker
+- Sourcetree (optional)
 
 ### Homebrew
 
@@ -104,24 +104,23 @@ brew install composer
 
 ## VSCode Extensions
 
--   PHP by DEVSENSE (DEVSENSE.phptools-vscode)
--   Auto Complete Tag (formulahendry.auto-complete-tag)
--   Auto File Name (JerryHong.autofilename)
--   Bootstrap 5 & Font Awesome Snippets (HansUXdev.bootstrap5-snippets)
--   Bootstrap IntelliSense (hossaini.bootstrap-intellisense)
--   Code Spell Checker (streetsidesoftware.code-spell-checker)
--   HTML CSS Support (ecmel.vscode-html-css)
--   HTML Format (mohd-akram.vscode-html-format)
--   JavaScript Snippet Pack (akamud.vscode-javascript-snippet-pack)
--   Laravel & PHP Essentials (TechieCouch.laravel-php-essentials)
--   PHP by DEVSENSE (DEVSENSE.phptools-vscode)
--   Svelte Auto Import (pivaszbs.svelte-autoimport)
--   Svelte for VS Code (svelte.svelte-vscode)
--   Svelte Intellisense (ardenivanov.svelte-intellisense)
--   Svelte Snippets (JakobKruse.svelte-kit-snippets)
--   svelte-format (melihaltintas.svelte-format)
--   Thunder Client (rangav.vscode-thunder-client)
--   Tailwind CSS IntelliSense (bradlc.vscode-tailwindcss)
+- Auto Complete Tag (formulahendry.auto-complete-tag)
+- Auto File Name (JerryHong.autofilename)
+- Bootstrap 5 & Font Awesome Snippets (HansUXdev.bootstrap5-snippets)
+- Bootstrap IntelliSense (hossaini.bootstrap-intellisense)
+- Code Spell Checker (streetsidesoftware.code-spell-checker)
+- HTML CSS Support (ecmel.vscode-html-css)
+- HTML Format (mohd-akram.vscode-html-format)
+- JavaScript Snippet Pack (akamud.vscode-javascript-snippet-pack)
+- Laravel & PHP Essentials (TechieCouch.laravel-php-essentials)
+- PHP by DEVSENSE (DEVSENSE.phptools-vscode)
+- Svelte Auto Import (pivaszbs.svelte-autoimport)
+- Svelte Intellisense (ardenivanov.svelte-intellisense)
+- Svelte Snippets (JakobKruse.svelte-kit-snippets)
+- Svelte for VS Code (svelte.svelte-vscode)
+- Tailwind CSS IntelliSense (bradlc.vscode-tailwindcss)
+- Thunder Client (rangav.vscode-thunder-client)
+- svelte-format (melihaltintas.svelte-format)
 
 ### Setup Inertia.js from Laravel & PHP Essentials
 
