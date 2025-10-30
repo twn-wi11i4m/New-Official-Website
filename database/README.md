@@ -1,11 +1,14 @@
 # Database Documentation
 
+[![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=fff)](#) [![Laravel](https://img.shields.io/badge/Laravel-%23FF2D20.svg?logo=laravel&logoColor=white)](#)
+
 ## Overview
 
-This document provides comprehensive documentation for the MENSA website database structure. The database is built using **MySQL 8.0.31** with **Laravel Framework** migrations and Eloquent ORM.
+This document provides comprehensive documentation for the MENSA website database structure. The database is built using **MySQL** with **Laravel Framework** migrations and Eloquent ORM.
 
 ## Table of Contents
 
+-   [Version History](#version-history)
 -   [Database Configuration](#database-configuration)
 -   [Entity Relationship Diagram (ERD)](#entity-relationship-diagram-erd)
 -   [Database Tables](#database-tables)
@@ -14,6 +17,14 @@ This document provides comprehensive documentation for the MENSA website databas
 -   [Seeders](#seeders)
 -   [Factories](#factories)
 -   [Important Notes for Backend Developers](#important-notes-for-backend-developers)
+
+---
+
+## Version History
+
+| Date             | Description     |
+| ---------------- | --------------- |
+| October 30, 2025 | Initial Version |
 
 ---
 
@@ -1235,14 +1246,6 @@ $candidates = AdmissionTest::find($testId)
 
 ---
 
-## Version History
-
-| Date             | Description     |
-| ---------------- | --------------- |
-| October 30, 2025 | Initial Version |
-
----
-
 ## Contributing
 
 When adding new migrations:
@@ -1255,4 +1258,4 @@ When adding new migrations:
 
 ---
 
-**This documentation is manually maintained. Please ensure accuracy when making changes to the database schema. For questions or clarifications, please contact the development team.**
+<span style="color: red;">**This documentation is manually maintained. Please ensure accuracy when making changes to the database schema. For questions or clarifications, please contact the development team.**</span>
